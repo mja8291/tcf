@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TCF MQI Survey App
 
-## Getting Started
+Mobile-first web app for TCF Admin & Support Managers to run Maintenance
+Quality Index (MQI) inspections on school campuses. Two inspection methods,
+live score calculation, Google Sheets as the data store, plus a dashboard for
+tracking rollout across the school network.
 
-First, run the development server:
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Without Google Sheets
+credentials configured, the app runs fully against local mock data (schools,
+dashboard) so every screen is clickable out of the box.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Wiring up Google Sheets
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copy `.env.local.example` to `.env.local` and fill in:
 
-## Learn More
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL` / `GOOGLE_PRIVATE_KEY` — a service account
+  with Editor access on the MQI spreadsheet and the Drive photos folder.
+- `MQI_SPREADSHEET_ID` — the spreadsheet responses/exports read and write to.
+- `SCHOOLS_SPREADSHEET_ID` / `SCHOOLS_SHEET_TAB` — the campus list source
+  (Region/Area/Campus/School ID columns, matched by header name).
+- `MQI_PHOTOS_DRIVE_FOLDER_ID` — root Drive folder for survey photos.
 
-To learn more about Next.js, take a look at the following resources:
+**Before going live**, confirm the exact tab names on the real spreadsheet —
+`METHOD1_RESPONSE_TAB`, `METHOD2_RESPONSE_TAB`, `ATTACHMENTS_TAB` env vars
+override the defaults in `src/lib/sheets/responses.ts` if they differ.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project layout
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `src/lib/data/` — hardcoded rubric constants (Method 1 items, Method 2
+  groups, location mappings, bilingual copy) — the source of truth is
+  `01-data-and-scoring.md` from the build brief.
+- `src/lib/scoring.ts` — the renormalizing weighted-average scoring engine.
+- `src/lib/sheets/` — server-only Google Sheets/Drive integration.
+- `src/lib/survey-context.tsx` — client-side wizard state for the survey flow.
+- `src/app/survey/` — the Method 1 / Method 2 survey screens.
+- `src/app/dashboard/` — the schools-captured dashboard.
+- `src/app/api/export/` — Excel export endpoints (all responses, single
+  survey with live formulas).
 
-## Deploy on Vercel
+## Tech stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Next.js (App Router) + TypeScript + Tailwind, `googleapis` for Sheets/Drive,
+`exceljs` for formula-driven Excel export, deployed on Vercel.

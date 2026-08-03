@@ -1,0 +1,80 @@
+"use client";
+
+import { Camera, Info, StickyNote } from "lucide-react";
+import { useState } from "react";
+import type { Condition, RubricItem } from "@/lib/types";
+import { ConditionPills } from "./ConditionPills";
+import { IconButton } from "./IconButton";
+import { ConditionInfoPanel } from "./ConditionInfoPanel";
+
+interface ItemRowProps {
+  item: RubricItem;
+  worstCase?: boolean;
+  value: Condition | undefined;
+  photo: File | undefined;
+  note: string | undefined;
+  onScoreChange: (value: Condition) => void;
+  onPhotoChange: (file: File | undefined) => void;
+  onNoteChange: (value: string) => void;
+}
+
+export function ItemRow({
+  item,
+  worstCase,
+  value,
+  photo,
+  note,
+  onScoreChange,
+  onPhotoChange,
+  onNoteChange,
+}: ItemRowProps) {
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(Boolean(note));
+  const inputId = `photo_${item.name.replace(/[^a-zA-Z0-9]/g, "_")}`;
+
+  return (
+    <div className="py-2.5 border-b border-border">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className="text-[13.5px] font-medium text-ink">{item.name}</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10.5px] text-ink-faint whitespace-nowrap">
+            {item.weight}%{worstCase ? " · worst-case" : ""}
+          </span>
+          <IconButton active={infoOpen} aria-label="Rating guidance" onClick={() => setInfoOpen((v) => !v)}>
+            <Info size={16} />
+          </IconButton>
+          <IconButton
+            active={Boolean(photo)}
+            aria-label="Attach photo"
+            onClick={() => document.getElementById(inputId)?.click()}
+          >
+            <Camera size={16} />
+          </IconButton>
+          <IconButton active={noteOpen} aria-label="Add note" onClick={() => setNoteOpen((v) => !v)}>
+            <StickyNote size={16} />
+          </IconButton>
+          <input
+            id={inputId}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => onPhotoChange(e.target.files?.[0])}
+          />
+        </div>
+      </div>
+      <ConditionPills value={value} onChange={onScoreChange} />
+      {photo ? <div className="text-[11px] text-ink-faint mt-1">Attached: {photo.name}</div> : null}
+      {noteOpen ? (
+        <input
+          type="text"
+          placeholder="Note on this item"
+          value={note ?? ""}
+          onChange={(e) => onNoteChange(e.target.value)}
+          className="mt-1.5 w-full rounded-lg border border-border px-2.5 py-2 text-xs"
+        />
+      ) : null}
+      {infoOpen ? <ConditionInfoPanel category={item.category} /> : null}
+    </div>
+  );
+}
