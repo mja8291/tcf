@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import { PwaBootstrap } from "@/components/PwaBootstrap";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -11,13 +12,22 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "TCF MQI Survey",
   description:
-    "Maintenance Quality Index inspections for TCF school campuses.",
+    "Maintenance Quality Index inspections for TCF school campuses — works offline, syncs when back online.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "MQI Survey",
+  },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  themeColor: "#0e5c4d",
 };
 
 export default function RootLayout({
@@ -28,6 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${spaceGrotesk.variable} h-full`}>
       <body className="min-h-full flex flex-col bg-surface text-ink">
+        <PwaBootstrap />
         {children}
       </body>
     </html>

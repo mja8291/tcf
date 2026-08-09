@@ -1,161 +1,451 @@
-import type { LocationType, Method2Group } from "@/lib/types";
+import type { FloorLevel, LocationType, Method2Group, WorkCategory } from "@/lib/types";
 
 /**
- * Method 2 — 23 item groups, scored per location then aggregated to campus level.
- * Safety groups aggregate worst-case (minimum); Functionality/Aesthetics average.
- * See "Aggregating a Method 2 item across multiple locations" in 01-data-and-scoring.md.
+ * Method 2 v2 — 44 items across 6 work categories, per
+ * 06-method2-v2-restructure.md (supersedes the old 23-item-group version).
+ * Weights are each item's share of its scoring category (Functionality 45%
+ * / Safety 25% / Aesthetics 30%) — the same weighting mechanics as Method 1,
+ * just regrouped into work categories for entry and reweighted. Safety here
+ * has 14 items (not Method 1's 13 — adds "Parapet Wall") with different
+ * weights on shared items (e.g. Doors 7% here vs 12% in Method 1); verified
+ * independently that Functionality/Safety/Aesthetics each still sum to 100%.
  */
+function worst(item: Omit<Method2Group, "aggregation" | "category"> & { category: "Safety" }): Method2Group {
+  return { ...item, aggregation: "worst" };
+}
+function average(
+  item: Omit<Method2Group, "aggregation" | "category"> & { category: "Functionality" | "Aesthetics" }
+): Method2Group {
+  return { ...item, aggregation: "average" };
+}
+
+const CLASSROOM: LocationType = "Classroom";
+const CORRIDOR: LocationType = "Corridor & Stairs";
+const TOILET: LocationType = "Toilet";
+const FACADE: LocationType = "Exterior Facade";
+const EXT_DEV: LocationType = "External Development";
+const ROOF: LocationType = "Roof";
+const OTHER_ROOM: LocationType = "Other Room (Staff, Principal, Admin, Store etc.)";
+const LAB: LocationType = "Lab (Wet/Dry/DLP)";
+
 export const METHOD2_GROUPS: Method2Group[] = [
-  // Safety — 25%, 6 groups, worst-case aggregation
-  { name: "Boundary wall", category: "Safety", weight: 15, aggregation: "worst" },
-  { name: "Main Gate", category: "Safety", weight: 10, aggregation: "worst" },
-  { name: "Roof Access", category: "Safety", weight: 10, aggregation: "worst" },
-  { name: "Ceiling Condition i.e. cracks & seepage", category: "Safety", weight: 35, aggregation: "worst" },
-  { name: "Wall/Column Condition i.e. cracks", category: "Safety", weight: 15, aggregation: "worst" },
-  { name: "Roof Screeding/roof drainage", category: "Safety", weight: 15, aggregation: "worst" },
+  // Plumbing Works — 8 items, all Functionality
+  average({
+    name: "Water Storage (Overhead Tank) *",
+    category: "Functionality",
+    weight: 7,
+    principalMaintained: true,
+    workCategory: "Plumbing Works",
+    locations: [ROOF],
+  }),
+  average({
+    name: "Water Supply line *",
+    category: "Functionality",
+    weight: 7,
+    principalMaintained: true,
+    workCategory: "Plumbing Works",
+    locations: [TOILET, EXT_DEV, ROOF, LAB],
+  }),
+  average({
+    name: "Water Taps *",
+    category: "Functionality",
+    weight: 7,
+    principalMaintained: true,
+    workCategory: "Plumbing Works",
+    locations: [TOILET, LAB],
+  }),
+  average({
+    name: "Wash Basin *",
+    category: "Functionality",
+    weight: 7,
+    principalMaintained: true,
+    workCategory: "Plumbing Works",
+    locations: [TOILET, LAB],
+  }),
+  average({
+    name: "Flush Tanks *",
+    category: "Functionality",
+    weight: 5,
+    principalMaintained: true,
+    workCategory: "Plumbing Works",
+    locations: [TOILET],
+  }),
+  average({
+    name: "W.Cs/Commodes",
+    category: "Functionality",
+    weight: 7,
+    workCategory: "Plumbing Works",
+    locations: [TOILET],
+  }),
+  average({
+    name: "Sewerage Line functionality *",
+    category: "Functionality",
+    weight: 7,
+    principalMaintained: true,
+    workCategory: "Plumbing Works",
+    locations: [TOILET, EXT_DEV, LAB],
+  }),
+  average({
+    name: "Motor (Water pump) *",
+    category: "Functionality",
+    weight: 4,
+    principalMaintained: true,
+    workCategory: "Plumbing Works",
+    locations: [EXT_DEV, OTHER_ROOM],
+  }),
 
-  // Functionality — 45%, 12 groups, average aggregation
-  { name: "Green board/Softboard/Cabinet", category: "Functionality", weight: 6, aggregation: "average" },
-  { name: "Water Storage (Overhead Tank)", category: "Functionality", weight: 6, aggregation: "average" },
-  { name: "Plumbing Fixtures", category: "Functionality", weight: 20, aggregation: "average" },
-  { name: "Electrical Fixtures", category: "Functionality", weight: 15, aggregation: "average" },
-  { name: "External Plumbing", category: "Functionality", weight: 10, aggregation: "average" },
-  { name: "Door/Windows/Ventilators", category: "Functionality", weight: 10, aggregation: "average" },
-  { name: "LED/TV/UPS", category: "Functionality", weight: 3, aggregation: "average" },
-  { name: "Solar Panels/Inverter/Batteries", category: "Functionality", weight: 10, aggregation: "average" },
-  { name: "Grill gate", category: "Functionality", weight: 3, aggregation: "average" },
-  { name: "Flooring Condition", category: "Functionality", weight: 5, aggregation: "average" },
-  { name: "Toilet Flooring/tiles", category: "Functionality", weight: 5, aggregation: "average" },
-  { name: "Furniture Condition", category: "Functionality", weight: 7, aggregation: "average" },
+  // Electrical Works — 10 items, Functionality except Electrical Wiring/Connections (Safety)
+  average({
+    name: "Energy & Power (Distribution Board) *",
+    category: "Functionality",
+    weight: 4,
+    principalMaintained: true,
+    workCategory: "Electrical Works",
+    locations: [CORRIDOR, LAB],
+  }),
+  average({
+    name: "Fans *",
+    category: "Functionality",
+    weight: 5,
+    principalMaintained: true,
+    workCategory: "Electrical Works",
+    locations: [CLASSROOM, OTHER_ROOM, LAB],
+  }),
+  average({
+    name: "Light Switch Buttons *",
+    category: "Functionality",
+    weight: 5,
+    principalMaintained: true,
+    workCategory: "Electrical Works",
+    locations: [CLASSROOM, TOILET, CORRIDOR, LAB],
+  }),
+  average({
+    name: "Bulbs *",
+    category: "Functionality",
+    weight: 3,
+    principalMaintained: true,
+    workCategory: "Electrical Works",
+    locations: [CLASSROOM, TOILET, CORRIDOR, LAB],
+  }),
+  average({
+    name: "Fan Dimmers *",
+    category: "Functionality",
+    weight: 5,
+    principalMaintained: true,
+    workCategory: "Electrical Works",
+    locations: [CLASSROOM, OTHER_ROOM, LAB],
+  }),
+  average({
+    name: "LED/TV *",
+    category: "Functionality",
+    weight: 3,
+    principalMaintained: true,
+    workCategory: "Electrical Works",
+    locations: [LAB],
+  }),
+  average({
+    name: "UPS *",
+    category: "Functionality",
+    weight: 3,
+    principalMaintained: true,
+    workCategory: "Electrical Works",
+    locations: [LAB],
+  }),
+  average({
+    name: "Solar/UPS Batteries",
+    category: "Functionality",
+    weight: 3,
+    workCategory: "Electrical Works",
+    locations: [CORRIDOR],
+  }),
+  average({
+    name: "Solar Panels",
+    category: "Functionality",
+    weight: 2,
+    workCategory: "Electrical Works",
+    locations: [ROOF],
+  }),
+  worst({
+    name: "Electrical Wiring/Connections",
+    category: "Safety",
+    weight: 6,
+    workCategory: "Electrical Works",
+    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+  }),
 
-  // Aesthetics — 30%, 5 groups, average aggregation
-  { name: "Paint", category: "Aesthetics", weight: 45, aggregation: "average" },
-  { name: "Exterior Finish", category: "Aesthetics", weight: 25, aggregation: "average" },
-  { name: "Signage/Plaque", category: "Aesthetics", weight: 15, aggregation: "average" },
-  { name: "Plaster/Masonry", category: "Aesthetics", weight: 10, aggregation: "average" },
-  { name: "CC Jali", category: "Aesthetics", weight: 5, aggregation: "average" },
+  // Carpentry Works — 5 items
+  average({
+    name: "Windows/Ventilator & panes *",
+    category: "Functionality",
+    weight: 3,
+    principalMaintained: true,
+    workCategory: "Carpentry Works",
+    locations: [CLASSROOM, TOILET, OTHER_ROOM, LAB],
+  }),
+  average({
+    name: "Cabinet *",
+    category: "Functionality",
+    weight: 3,
+    principalMaintained: true,
+    workCategory: "Carpentry Works",
+    locations: [CLASSROOM, OTHER_ROOM, LAB],
+  }),
+  average({
+    name: "Soft board *",
+    category: "Functionality",
+    weight: 3,
+    principalMaintained: true,
+    workCategory: "Carpentry Works",
+    locations: [CLASSROOM, OTHER_ROOM, LAB],
+  }),
+  worst({
+    name: "Doors *",
+    category: "Safety",
+    weight: 7,
+    principalMaintained: true,
+    workCategory: "Carpentry Works",
+    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+  }),
+  average({
+    name: "Furniture condition *",
+    category: "Aesthetics",
+    weight: 10,
+    principalMaintained: true,
+    workCategory: "Carpentry Works",
+    locations: [CLASSROOM, OTHER_ROOM, LAB],
+  }),
+
+  // Paint Works — 3 items
+  average({
+    name: "Green board *",
+    category: "Functionality",
+    weight: 7,
+    principalMaintained: true,
+    workCategory: "Paint Works",
+    locations: [CLASSROOM, LAB],
+  }),
+  average({
+    name: "Internal Paint",
+    category: "Aesthetics",
+    weight: 15,
+    workCategory: "Paint Works",
+    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+  }),
+  average({
+    name: "External Fascade (Exterior Finish)",
+    category: "Aesthetics",
+    weight: 12,
+    workCategory: "Paint Works",
+    locations: [FACADE],
+  }),
+
+  // External Development Works — 2 items
+  worst({
+    name: "Boundary wall",
+    category: "Safety",
+    weight: 7,
+    workCategory: "External Development Works",
+    locations: [EXT_DEV],
+  }),
+  worst({
+    name: "Main Gate",
+    category: "Safety",
+    weight: 7,
+    workCategory: "External Development Works",
+    locations: [EXT_DEV],
+  }),
+
+  // Internal Civil Works — 16 items
+  worst({
+    name: "Grill gate *",
+    category: "Safety",
+    weight: 5,
+    principalMaintained: true,
+    workCategory: "Internal Civil Works",
+    locations: [CORRIDOR, LAB, ROOF],
+  }),
+  worst({
+    name: "Access to roof area /tanks",
+    category: "Safety",
+    weight: 4,
+    workCategory: "Internal Civil Works",
+    locations: [ROOF],
+  }),
+  worst({
+    name: "Cracks visibility in roof",
+    category: "Safety",
+    weight: 14,
+    workCategory: "Internal Civil Works",
+    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+  }),
+  worst({
+    name: "Cracks visibility in columns",
+    category: "Safety",
+    weight: 7,
+    workCategory: "Internal Civil Works",
+    locations: [CLASSROOM, TOILET, CORRIDOR, FACADE, ROOF, OTHER_ROOM, LAB],
+  }),
+  worst({
+    name: "Cracks visibility in walls",
+    category: "Safety",
+    weight: 7,
+    workCategory: "Internal Civil Works",
+    locations: [CLASSROOM, TOILET, CORRIDOR, FACADE, OTHER_ROOM, LAB],
+  }),
+  worst({
+    name: "Parapet Wall",
+    category: "Safety",
+    weight: 5,
+    workCategory: "Internal Civil Works",
+    locations: [ROOF],
+  }),
+  worst({
+    name: "Internal Flooring condition",
+    category: "Safety",
+    weight: 10,
+    workCategory: "Internal Civil Works",
+    locations: [CLASSROOM, CORRIDOR, OTHER_ROOM, LAB],
+  }),
+  worst({
+    name: "Roof leakage/seepage",
+    category: "Safety",
+    weight: 7,
+    workCategory: "Internal Civil Works",
+    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+  }),
+  worst({
+    name: "Roof Screeding/roof drainage",
+    category: "Safety",
+    weight: 7,
+    workCategory: "Internal Civil Works",
+    locations: [ROOF],
+  }),
+  worst({
+    name: "Visibility of dampness",
+    category: "Safety",
+    weight: 7,
+    workCategory: "Internal Civil Works",
+    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+  }),
+  average({
+    name: "Toilet Flooring condition",
+    category: "Aesthetics",
+    weight: 12,
+    workCategory: "Internal Civil Works",
+    locations: [TOILET],
+  }),
+  average({
+    name: "Signage *",
+    category: "Aesthetics",
+    weight: 10,
+    principalMaintained: true,
+    workCategory: "Internal Civil Works",
+    locations: [FACADE],
+  }),
+  average({
+    name: "Marble Plaque *",
+    category: "Aesthetics",
+    weight: 10,
+    principalMaintained: true,
+    workCategory: "Internal Civil Works",
+    locations: [CORRIDOR],
+  }),
+  average({
+    name: "Plaster",
+    category: "Aesthetics",
+    weight: 12,
+    workCategory: "Internal Civil Works",
+    locations: [CLASSROOM, TOILET, CORRIDOR, FACADE, OTHER_ROOM, LAB],
+  }),
+  average({
+    name: "Masonry",
+    category: "Aesthetics",
+    weight: 12,
+    workCategory: "Internal Civil Works",
+    locations: [CLASSROOM, TOILET, CORRIDOR, FACADE, OTHER_ROOM, LAB],
+  }),
+  average({
+    name: "CC Jaali",
+    category: "Aesthetics",
+    weight: 7,
+    workCategory: "Internal Civil Works",
+    locations: [TOILET, CORRIDOR, FACADE, OTHER_ROOM],
+  }),
+];
+
+/** Display order for the Work Category page's 6 cards. */
+export const WORK_CATEGORIES: WorkCategory[] = [
+  "Internal Civil Works",
+  "Carpentry Works",
+  "Paint Works",
+  "External Development Works",
+  "Electrical Works",
+  "Plumbing Works",
 ];
 
 export const LOCATION_TYPES: LocationType[] = [
-  "Classroom",
-  "Corridor & Stairs",
-  "Toilet",
-  "Exterior Facade",
-  "External Development",
-  "Roof",
-  "Other Room (Staff, Principal, Admin, Store etc.)",
-  "Lab (Wet/Dry/DLP)",
+  CLASSROOM,
+  CORRIDOR,
+  TOILET,
+  FACADE,
+  EXT_DEV,
+  ROOF,
+  OTHER_ROOM,
+  LAB,
 ];
 
-const CLASSROOM_GROUPS = [
-  "Green board/Softboard/Cabinet",
-  "Electrical Fixtures",
-  "Door/Windows/Ventilators",
-  "Ceiling Condition i.e. cracks & seepage",
-  "Wall/Column Condition i.e. cracks",
-  "Flooring Condition",
-  "Paint",
-  "Furniture Condition",
-  "Plaster/Masonry",
-];
+export const FLOOR_LEVELS: FloorLevel[] = ["External", "Ground", "First", "Second", "Third", "Fourth", "Roof"];
 
-/** Which Method 2 item groups are scored at each location type. */
-export const LOCATION_ITEM_GROUPS: Record<LocationType, string[]> = {
-  Classroom: CLASSROOM_GROUPS,
-  "Corridor & Stairs": [
-    "Electrical Fixtures",
-    "Door/Windows/Ventilators",
-    "Grill gate",
-    "Roof Access",
-    "Ceiling Condition i.e. cracks & seepage",
-    "Wall/Column Condition i.e. cracks",
-    "Flooring Condition",
-    "Paint",
-    "Plaster/Masonry",
-    "CC Jali",
-    "Solar Panels/Inverter/Batteries",
-  ],
-  Toilet: [
-    "Toilet Flooring/tiles",
-    "Plumbing Fixtures",
-    "Electrical Fixtures",
-    "Door/Windows/Ventilators",
-    "Ceiling Condition i.e. cracks & seepage",
-    "Wall/Column Condition i.e. cracks",
-    "Paint",
-    "Plaster/Masonry",
-  ],
-  "Exterior Facade": [
-    "External Plumbing",
-    "Door/Windows/Ventilators",
-    "Grill gate",
-    "Wall/Column Condition i.e. cracks",
-    "Roof Screeding/roof drainage",
-    "Exterior Finish",
-    "Signage/Plaque",
-    "Plaster/Masonry",
-    "CC Jali",
-  ],
-  "External Development": ["Boundary wall", "Main Gate", "External Plumbing", "Plaster/Masonry"],
-  Roof: [
-    "Roof Screeding/roof drainage",
-    "Water Storage (Overhead Tank)",
-    "External Plumbing",
-    "Roof Access",
-    "Wall/Column Condition i.e. cracks",
-    "Plaster/Masonry",
-    "Solar Panels/Inverter/Batteries",
-  ],
-  "Other Room (Staff, Principal, Admin, Store etc.)": CLASSROOM_GROUPS,
-  "Lab (Wet/Dry/DLP)": [
-    "Green board/Softboard/Cabinet",
-    "Plumbing Fixtures",
-    "Electrical Fixtures",
-    "Door/Windows/Ventilators",
-    "LED/TV/UPS",
-    "Grill gate",
-    "Ceiling Condition i.e. cracks & seepage",
-    "Wall/Column Condition i.e. cracks",
-    "Flooring Condition",
-    "Paint",
-    "Furniture Condition",
-    "Plaster/Masonry",
-  ],
+const GROUND_LIKE_TYPES: LocationType[] = [CLASSROOM, CORRIDOR, TOILET, ROOF, OTHER_ROOM, LAB];
+
+/** Which location types are offered on a given floor. Empty = skip the Location page (Roof floor only). */
+export const FLOOR_LOCATION_TYPES: Record<FloorLevel, LocationType[]> = {
+  External: [FACADE, EXT_DEV],
+  Ground: GROUND_LIKE_TYPES,
+  First: GROUND_LIKE_TYPES,
+  Second: GROUND_LIKE_TYPES,
+  Third: GROUND_LIKE_TYPES,
+  Fourth: GROUND_LIKE_TYPES,
+  Roof: [],
 };
 
-export function method2GroupsForLocation(type: LocationType): Method2Group[] {
-  const names = new Set(LOCATION_ITEM_GROUPS[type]);
-  return METHOD2_GROUPS.filter((g) => names.has(g.name));
-}
-
 /**
- * Location types that only ever have one instance on a campus, so naming
- * that instance is pointless friction — skip the naming step and go
- * straight to scoring, with the location's name set to the type itself.
+ * Location types that only ever have one instance per visit, so naming it is
+ * pointless friction — auto-name instead (e.g. "Roof 1", incrementing).
  */
-export const UNNAMED_LOCATION_TYPES: LocationType[] = [
-  "Corridor & Stairs",
-  "Exterior Facade",
-  "External Development",
-  "Roof",
-];
+export const UNNAMED_LOCATION_TYPES: LocationType[] = [CORRIDOR, FACADE, EXT_DEV, ROOF];
 
-/**
- * Location types with a fixed set of real-world instances — presented as a
- * select instead of a free-text name field. Types not listed here
- * (Classroom) keep the free-text field.
- */
+/** Fixed-choice dependent dropdown for location types that aren't free-text or auto-named. Classroom is handled separately (grade + section). */
 export const LOCATION_NAME_OPTIONS: Partial<Record<LocationType, string[]>> = {
   Toilet: ["Girls Toilet", "Boys Toilet", "Female Staff Toilet", "Male Staff Toilet"],
-  "Lab (Wet/Dry/DLP)": ["Wet Lab", "Dry Lab", "DLP", "Bio/Chemistry Lab", "Physics lab"],
+  "Lab (Wet/Dry/DLP)": ["Wet Lab", "Dry Lab", "DLP", "Bio/Chemistry Lab", "Physics Lab"],
   "Other Room (Staff, Principal, Admin, Store etc.)": [
     "Staff room",
     "Principal Room",
     "Admin Room",
     "Store",
-    "Janitor Room",
-    "Chemistry lab store",
-    "Physics lab store",
+    "Chemistry/Wet Lab Store",
+    "Physics/Dry Lab Store",
     "Pantry",
+    "Others",
   ],
 };
+
+export const CLASSROOM_GRADES = ["KG", ...Array.from({ length: 12 }, (_, i) => `Class ${i + 1}`)];
+/** Campuses use either lettered or coloured sections — offer both, ASM picks whichever applies. */
+export const CLASSROOM_SECTIONS = ["A", "B", "C", "D", "E", "Red", "Yellow", "Green", "Blue"];
+
+export function method2GroupsForLocation(type: LocationType): Method2Group[] {
+  return METHOD2_GROUPS.filter((g) => g.locations.includes(type));
+}
+
+export function method2GroupsForLocationAndCategory(type: LocationType, workCategory: WorkCategory): Method2Group[] {
+  return method2GroupsForLocation(type).filter((g) => g.workCategory === workCategory);
+}
+
+/** Item counts per work category for a specific location type — drives the Work Category page's card counts (location-specific, not global). */
+export function workCategoryCountsForLocation(type: LocationType): Record<WorkCategory, number> {
+  const counts = Object.fromEntries(WORK_CATEGORIES.map((c) => [c, 0])) as Record<WorkCategory, number>;
+  for (const item of method2GroupsForLocation(type)) counts[item.workCategory]++;
+  return counts;
+}

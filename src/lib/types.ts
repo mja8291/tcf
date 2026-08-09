@@ -19,9 +19,21 @@ export interface RubricItem {
   principalMaintained?: boolean;
 }
 
+export type WorkCategory =
+  | "Internal Civil Works"
+  | "Carpentry Works"
+  | "Paint Works"
+  | "External Development Works"
+  | "Electrical Works"
+  | "Plumbing Works";
+
 export interface Method2Group extends RubricItem {
-  /** Safety groups aggregate by worst-case (minimum); Functionality/Aesthetics aggregate by average. */
+  /** Safety items aggregate by worst-case (minimum); Functionality/Aesthetics aggregate by average. */
   aggregation: "worst" | "average";
+  /** Which Work Category card this item is scored under (06-method2-v2-restructure.md). */
+  workCategory: WorkCategory;
+  /** Which location types this item is scored at. */
+  locations: LocationType[];
 }
 
 export type LocationType =
@@ -33,6 +45,9 @@ export type LocationType =
   | "Roof"
   | "Other Room (Staff, Principal, Admin, Store etc.)"
   | "Lab (Wet/Dry/DLP)";
+
+/** Method 2's first pick — which floor the location being scored is on. */
+export type FloorLevel = "External" | "Ground" | "First" | "Second" | "Third" | "Fourth" | "Roof";
 
 export interface ItemState {
   scores: Record<string, Condition>;
@@ -46,8 +61,12 @@ export function emptyItemState(): ItemState {
 
 export interface Method2Location {
   id: string;
+  floorLevel: FloorLevel;
   type: LocationType;
   name: string;
+  /** Only set for Classroom locations — also queryable as their own columns in the response sheet. */
+  classroomGrade?: string;
+  classroomSection?: string;
   scores: Record<string, Condition>;
   /** Actual File objects, kept client-side until submission uploads them to Drive. */
   photos: Record<string, File>;

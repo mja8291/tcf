@@ -4,7 +4,7 @@ import { readRowsByHeader } from "@/lib/sheets/read";
 import { buildAllResponsesWorkbook } from "@/lib/export/all-responses-workbook";
 
 const METHOD1_TAB = process.env.METHOD1_RESPONSE_TAB || "Method 1 Responses";
-const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses";
+const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses V2";
 
 export async function GET() {
   if (!sheetsConfigured() || !process.env.MQI_SPREADSHEET_ID) {

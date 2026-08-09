@@ -1,11 +1,16 @@
 "use client";
 
 import { createContext, useContext, useMemo, useReducer } from "react";
-import type { Condition, LocationType, Method2Location, PowerSupply, School } from "@/lib/types";
+import type { Condition, FloorLevel, LocationType, Method2Location, PowerSupply, School, WorkCategory } from "@/lib/types";
+import { UNNAMED_LOCATION_TYPES } from "@/lib/data/method2-items";
 
 interface M2Current {
-  type: LocationType;
+  floorLevel: FloorLevel;
+  type: LocationType | null;
   name: string;
+  classroomGrade?: string;
+  classroomSection?: string;
+  activeWorkCategory: WorkCategory | null;
   scores: Record<string, Condition>;
   photos: Record<string, File>;
   notes: Record<string, string>;
@@ -28,6 +33,8 @@ interface SurveyState {
     locations: Method2Location[];
     current: M2Current | null;
   };
+  /** Set right after a successful (non-queued) submit, so the Done screen can offer downloads. */
+  lastSurveyId: string | null;
 }
 
 function initialState(): SurveyState {
@@ -41,7 +48,12 @@ function initialState(): SurveyState {
     complaints: "",
     m1: { scores: {}, photos: {}, notes: {} },
     m2: { locations: [], current: null },
+    lastSurveyId: null,
   };
+}
+
+function emptyM2Current(floorLevel: FloorLevel): M2Current {
+  return { floorLevel, type: null, name: "", activeWorkCategory: null, scores: {}, photos: {}, notes: {} };
 }
 
 type Action =
@@ -50,15 +62,19 @@ type Action =
   | { type: "SET_RESPONDENT"; asm: string; apm: string; principal: string }
   | { type: "SET_POWER_SUPPLY"; value: PowerSupply }
   | { type: "SET_COMPLAINTS"; value: string }
+  | { type: "SET_LAST_SURVEY_ID"; surveyId: string | null }
   | { type: "M1_SET_SCORE"; name: string; value: Condition }
   | { type: "M1_SET_PHOTO"; name: string; file: File | undefined }
   | { type: "M1_SET_NOTE"; name: string; value: string }
-  | { type: "M2_OPEN_TYPE"; locationType: LocationType }
-  | { type: "M2_SET_NAME"; name: string }
+  | { type: "M2_SET_FLOOR"; floorLevel: FloorLevel; autoName?: string }
+  | { type: "M2_SET_LOCATION_TYPE"; floorLevel: FloorLevel; locationType: LocationType; autoName?: string }
+  | { type: "M2_SET_LOCATION_NAME"; name: string }
+  | { type: "M2_SET_CLASSROOM"; floorLevel: FloorLevel; grade: string; section: string }
+  | { type: "M2_OPEN_CATEGORY"; workCategory: WorkCategory }
   | { type: "M2_CURRENT_SET_SCORE"; name: string; value: Condition }
   | { type: "M2_CURRENT_SET_PHOTO"; name: string; file: File | undefined }
   | { type: "M2_CURRENT_SET_NOTE"; name: string; value: string }
-  | { type: "M2_SAVE_CURRENT" }
+  | { type: "M2_FINALIZE_CURRENT" }
   | { type: "RESET" };
 
 function reducer(state: SurveyState, action: Action): SurveyState {
@@ -73,6 +89,8 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       return { ...state, powerSupply: action.value };
     case "SET_COMPLAINTS":
       return { ...state, complaints: action.value };
+    case "SET_LAST_SURVEY_ID":
+      return { ...state, lastSurveyId: action.surveyId };
     case "M1_SET_SCORE":
       return { ...state, m1: { ...state.m1, scores: { ...state.m1.scores, [action.name]: action.value } } };
     case "M1_SET_PHOTO": {
@@ -83,14 +101,41 @@ function reducer(state: SurveyState, action: Action): SurveyState {
     }
     case "M1_SET_NOTE":
       return { ...state, m1: { ...state.m1, notes: { ...state.m1.notes, [action.name]: action.value } } };
-    case "M2_OPEN_TYPE":
-      return {
-        ...state,
-        m2: { ...state.m2, current: { type: action.locationType, name: "", scores: {}, photos: {}, notes: {} } },
-      };
-    case "M2_SET_NAME":
+
+    case "M2_SET_FLOOR": {
+      const current = emptyM2Current(action.floorLevel);
+      // Roof floor has no Location page — it *is* the location type, auto-named.
+      if (action.floorLevel === "Roof") {
+        current.type = "Roof";
+        current.name = action.autoName ?? "Roof";
+      }
+      return { ...state, m2: { ...state.m2, current } };
+    }
+    case "M2_SET_LOCATION_TYPE": {
+      // Always builds a fresh current from the explicit floorLevel — doesn't
+      // depend on a pre-existing current, so there's no ordering/timing
+      // dependency on whatever the previous screen last set.
+      const named = UNNAMED_LOCATION_TYPES.includes(action.locationType);
+      const current = emptyM2Current(action.floorLevel);
+      current.type = action.locationType;
+      current.name = named ? (action.autoName ?? action.locationType) : "";
+      return { ...state, m2: { ...state.m2, current } };
+    }
+    case "M2_SET_LOCATION_NAME":
       return state.m2.current
         ? { ...state, m2: { ...state.m2, current: { ...state.m2.current, name: action.name } } }
+        : state;
+    case "M2_SET_CLASSROOM": {
+      const current = emptyM2Current(action.floorLevel);
+      current.type = "Classroom";
+      current.classroomGrade = action.grade;
+      current.classroomSection = action.section;
+      current.name = `${action.grade} ${action.section}`;
+      return { ...state, m2: { ...state.m2, current } };
+    }
+    case "M2_OPEN_CATEGORY":
+      return state.m2.current
+        ? { ...state, m2: { ...state.m2, current: { ...state.m2.current, activeWorkCategory: action.workCategory } } }
         : state;
     case "M2_CURRENT_SET_SCORE":
       return state.m2.current
@@ -119,14 +164,19 @@ function reducer(state: SurveyState, action: Action): SurveyState {
             },
           }
         : state;
-    case "M2_SAVE_CURRENT": {
+    case "M2_FINALIZE_CURRENT": {
       const current = state.m2.current;
-      if (!current) return state;
-      const countOfType = state.m2.locations.filter((l) => l.type === current.type).length;
+      if (!current || !current.type || Object.keys(current.scores).length === 0) {
+        // Nothing scored yet at this location — nothing to keep.
+        return { ...state, m2: { ...state.m2, current: null } };
+      }
       const location: Method2Location = {
         id: `${current.type}-${Date.now()}`,
+        floorLevel: current.floorLevel,
         type: current.type,
-        name: current.name.trim() || `${current.type} ${countOfType + 1}`,
+        name: current.name,
+        classroomGrade: current.classroomGrade,
+        classroomSection: current.classroomSection,
         scores: current.scores,
         photos: current.photos,
         notes: current.notes,
@@ -147,15 +197,19 @@ interface SurveyContextValue {
   setRespondent: (asm: string, apm: string, principal: string) => void;
   setPowerSupply: (value: PowerSupply) => void;
   setComplaints: (value: string) => void;
+  setLastSurveyId: (surveyId: string | null) => void;
   m1SetScore: (name: string, value: Condition) => void;
   m1SetPhoto: (name: string, file: File | undefined) => void;
   m1SetNote: (name: string, value: string) => void;
-  m2OpenType: (locationType: LocationType) => void;
-  m2SetName: (name: string) => void;
+  m2SetFloor: (floorLevel: FloorLevel, autoName?: string) => void;
+  m2SetLocationType: (floorLevel: FloorLevel, locationType: LocationType, autoName?: string) => void;
+  m2SetLocationName: (name: string) => void;
+  m2SetClassroom: (floorLevel: FloorLevel, grade: string, section: string) => void;
+  m2OpenCategory: (workCategory: WorkCategory) => void;
   m2CurrentSetScore: (name: string, value: Condition) => void;
   m2CurrentSetPhoto: (name: string, file: File | undefined) => void;
   m2CurrentSetNote: (name: string, value: string) => void;
-  m2SaveCurrent: () => void;
+  m2FinalizeCurrent: () => void;
   reset: () => void;
 }
 
@@ -172,15 +226,20 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       setRespondent: (asm, apm, principal) => dispatch({ type: "SET_RESPONDENT", asm, apm, principal }),
       setPowerSupply: (value) => dispatch({ type: "SET_POWER_SUPPLY", value }),
       setComplaints: (value) => dispatch({ type: "SET_COMPLAINTS", value }),
+      setLastSurveyId: (surveyId) => dispatch({ type: "SET_LAST_SURVEY_ID", surveyId }),
       m1SetScore: (name, value) => dispatch({ type: "M1_SET_SCORE", name, value }),
       m1SetPhoto: (name, file) => dispatch({ type: "M1_SET_PHOTO", name, file }),
       m1SetNote: (name, value) => dispatch({ type: "M1_SET_NOTE", name, value }),
-      m2OpenType: (locationType) => dispatch({ type: "M2_OPEN_TYPE", locationType }),
-      m2SetName: (name) => dispatch({ type: "M2_SET_NAME", name }),
+      m2SetFloor: (floorLevel, autoName) => dispatch({ type: "M2_SET_FLOOR", floorLevel, autoName }),
+      m2SetLocationType: (floorLevel, locationType, autoName) =>
+        dispatch({ type: "M2_SET_LOCATION_TYPE", floorLevel, locationType, autoName }),
+      m2SetLocationName: (name) => dispatch({ type: "M2_SET_LOCATION_NAME", name }),
+      m2SetClassroom: (floorLevel, grade, section) => dispatch({ type: "M2_SET_CLASSROOM", floorLevel, grade, section }),
+      m2OpenCategory: (workCategory) => dispatch({ type: "M2_OPEN_CATEGORY", workCategory }),
       m2CurrentSetScore: (name, value) => dispatch({ type: "M2_CURRENT_SET_SCORE", name, value }),
       m2CurrentSetPhoto: (name, file) => dispatch({ type: "M2_CURRENT_SET_PHOTO", name, file }),
       m2CurrentSetNote: (name, value) => dispatch({ type: "M2_CURRENT_SET_NOTE", name, value }),
-      m2SaveCurrent: () => dispatch({ type: "M2_SAVE_CURRENT" }),
+      m2FinalizeCurrent: () => dispatch({ type: "M2_FINALIZE_CURRENT" }),
       reset: () => dispatch({ type: "RESET" }),
     }),
     [state]

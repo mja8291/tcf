@@ -8,21 +8,38 @@ import { Field, TextInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { useSurvey } from "@/lib/survey-context";
 import type { School } from "@/lib/types";
+import { cacheSchools, getCachedSchools } from "@/lib/offline/db";
 
 export default function FindSchoolPage() {
   const router = useRouter();
   const { state, setSchool } = useSurvey();
   const [schools, setSchools] = useState<School[]>([]);
+  const [usingCache, setUsingCache] = useState(false);
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState("");
   const [area, setArea] = useState("");
   const [selected, setSelected] = useState<School | null>(state.school);
 
   useEffect(() => {
+    // Show the last-known list immediately (works offline), then refresh from the network.
+    getCachedSchools().then((cached) => {
+      if (cached) {
+        setSchools(cached);
+        setUsingCache(true);
+      }
+    });
+
     fetch("/api/schools")
       .then((r) => r.json())
-      .then((data) => setSchools(data.schools ?? []))
-      .catch(() => setSchools([]));
+      .then((data) => {
+        const list = data.schools ?? [];
+        setSchools(list);
+        setUsingCache(false);
+        if (list.length > 0) cacheSchools(list);
+      })
+      .catch(() => {
+        // Network failed — whatever we already loaded from cache (if any) stands.
+      });
   }, []);
 
   const regions = useMemo(() => Array.from(new Set(schools.map((s) => s.region))).sort(), [schools]);
@@ -55,6 +72,12 @@ export default function FindSchoolPage() {
   return (
     <ScreenShell>
       <TopBar title="Find school" onBack={() => router.push("/")} />
+
+      {usingCache ? (
+        <p className="text-[11px] text-ink-faint bg-surface rounded-lg px-2.5 py-2 mb-3">
+          Offline — showing the last saved campus list.
+        </p>
+      ) : null}
 
       <Field label="Search by name">
         <TextInput

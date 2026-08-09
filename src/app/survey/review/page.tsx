@@ -13,11 +13,12 @@ import { useSurvey } from "@/lib/survey-context";
 import { CATEGORIES, ratingBand, scoreMethod1, scoreMethod2 } from "@/lib/scoring";
 import { OATH_TEXT, POWER_SUPPLY_OPTIONS } from "@/lib/data/content";
 import type { PowerSupply } from "@/lib/types";
-import { buildSubmissionFormData } from "@/lib/submit";
+import { buildSubmission, formDataFromSubmission } from "@/lib/submit";
+import { queueSubmission } from "@/lib/offline/db";
 
 export default function ReviewPage() {
   const router = useRouter();
-  const { state, setPowerSupply, setComplaints } = useSurvey();
+  const { state, setPowerSupply, setComplaints, setLastSurveyId } = useSurvey();
   const [powerSupply, setLocalPowerSupply] = useState<PowerSupply | "">(state.powerSupply);
   const [complaints, setLocalComplaints] = useState(state.complaints);
   const [oath, setOath] = useState(false);
@@ -44,18 +45,29 @@ export default function ReviewPage() {
     setError(null);
     setPowerSupply(powerSupply);
     setComplaints(complaints);
+
+    const submission = buildSubmission(
+      { ...state, school: state.school, method: state.method, powerSupply, complaints },
+      result
+    );
+
+    let res: Response;
     try {
-      const formData = buildSubmissionFormData(
-        { ...state, school: state.school, method: state.method, powerSupply, complaints },
-        result
-      );
-      const res = await fetch("/api/submit", { method: "POST", body: formData });
-      if (!res.ok) throw new Error(await res.text());
-      router.push("/survey/done");
+      res = await fetch("/api/submit", { method: "POST", body: formDataFromSubmission(submission) });
     } catch {
+      // Couldn't reach the server at all — treat as offline. Queue it locally
+      // and sync automatically once connectivity returns (see PwaBootstrap).
+      await queueSubmission(submission);
+      router.push("/survey/done?queued=1");
+      return;
+    }
+    if (!res.ok) {
       setError("Couldn't submit the survey. Check your connection and try again.");
       setSubmitting(false);
+      return;
     }
+    setLastSurveyId(submission.payload.surveyId);
+    router.push("/survey/done");
   }
 
   return (
@@ -68,7 +80,9 @@ export default function ReviewPage() {
       <div className="space-y-0.5 mb-4">
         <RecapRow k="School" v={state.school.name} />
         <RecapRow k="Method" v={`Method ${state.method}`} />
+        <RecapRow k="Accompanying APM" v={state.apm || "—"} />
         <RecapRow k="Responding ASM" v={state.asm || "—"} />
+        <RecapRow k="School Principal" v={state.principal || "—"} />
         {state.method === 2 ? <RecapRow k="Locations recorded" v={String(state.m2.locations.length)} /> : null}
       </div>
 

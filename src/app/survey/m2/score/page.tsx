@@ -8,39 +8,27 @@ import { ItemRow } from "@/components/ui/ItemRow";
 import { Button } from "@/components/ui/Button";
 import { BottomBar } from "@/components/ui/BottomBar";
 import { useSurvey } from "@/lib/survey-context";
-import { method2GroupsForLocation } from "@/lib/data/method2-items";
+import { method2GroupsForLocationAndCategory } from "@/lib/data/method2-items";
 
 export default function Method2ScorePage() {
   const router = useRouter();
-  const { state, m2CurrentSetScore, m2CurrentSetPhoto, m2CurrentSetNote, m2SaveCurrent } = useSurvey();
+  const { state, m2CurrentSetScore, m2CurrentSetPhoto, m2CurrentSetNote } = useSurvey();
   const current = state.m2.current;
 
   useEffect(() => {
-    if (!current) router.replace("/survey/m2");
+    if (!current || !current.type || !current.activeWorkCategory) router.replace("/survey/m2");
   }, [current, router]);
 
-  if (!current) return null;
+  if (!current || !current.type || !current.activeWorkCategory) return null;
 
-  const groups = method2GroupsForLocation(current.type);
-  const hasEntries = Object.keys(current.scores).length > 0;
-  const allAnswered = groups.every((item) => Boolean(current.scores[item.name]));
-
-  function goBack() {
-    if (hasEntries && !window.confirm("Discard the scores entered for this location?")) return;
-    router.push("/survey/m2");
-  }
-
-  function save() {
-    if (!allAnswered) return;
-    m2SaveCurrent();
-    router.push("/survey/m2");
-  }
+  const items = method2GroupsForLocationAndCategory(current.type, current.activeWorkCategory);
+  const allAnswered = items.every((item) => Boolean(current.scores[item.name]));
 
   return (
     <ScreenShell>
-      <TopBar title={`${current.type}${current.name ? " — " + current.name : ""}`} onBack={goBack} />
+      <TopBar title={current.activeWorkCategory} subtitle={current.name} onBack={() => router.push("/survey/m2/category")} />
 
-      {groups.map((item) => (
+      {items.map((item) => (
         <ItemRow
           key={item.name}
           item={item}
@@ -55,8 +43,8 @@ export default function Method2ScorePage() {
       ))}
 
       <BottomBar>
-        <Button disabled={!allAnswered} onClick={save}>
-          Save location and return
+        <Button disabled={!allAnswered} onClick={() => router.push("/survey/m2/category")}>
+          Save category and return
         </Button>
         {!allAnswered ? (
           <p className="text-center text-[11.5px] text-ink-faint mt-2.5">Score every item to continue.</p>

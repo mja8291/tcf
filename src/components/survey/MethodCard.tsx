@@ -5,14 +5,16 @@ interface MethodCardProps {
   title: string;
   description: string;
   onClick: () => void;
+  disabled?: boolean;
 }
 
-export function MethodCard({ icon: Icon, title, description, onClick }: MethodCardProps) {
+export function MethodCard({ icon: Icon, title, description, onClick, disabled }: MethodCardProps) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left rounded-2xl border border-border bg-card p-4 mb-3 active:border-brand"
+      disabled={disabled}
+      className="w-full text-left rounded-2xl border border-border bg-card p-4 mb-3 active:border-brand disabled:opacity-50"
     >
       <div className="h-8 w-8 rounded-lg bg-brand-tint text-brand flex items-center justify-center mb-2.5">
         <Icon size={18} />

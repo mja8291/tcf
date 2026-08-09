@@ -27,7 +27,14 @@ const COMMON_HEADER = [
 ];
 
 const METHOD1_HEADER = [...COMMON_HEADER, ...METHOD1_ITEMS.map((i) => i.name)];
-const METHOD2_HEADER = [...COMMON_HEADER, "Location Type", ...METHOD2_GROUPS.map((g) => g.name)];
+const METHOD2_HEADER = [
+  ...COMMON_HEADER,
+  "Floor Level",
+  "Location Type",
+  "Classroom Grade",
+  "Classroom Section",
+  ...METHOD2_GROUPS.map((g) => g.name),
+];
 const ATTACHMENTS_HEADER = ["Survey ID", "Item Name", "Location Name", "Photo URL", "Note"];
 
 const ensuredTabs = new Set<string>();
@@ -113,7 +120,12 @@ function requireSpreadsheetId(): string {
 }
 
 const METHOD1_TAB = process.env.METHOD1_RESPONSE_TAB || "Method 1 Responses";
-const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses";
+// A NEW tab, deliberately not "Method 2 Responses" — that tab already has 19
+// real submitted rows against the old 23-item-group rubric. Writing the new
+// 44-item schema into the same columns would silently misalign or drop data.
+// Don't repoint this at the live tab without a decision from Junaid on
+// archiving/backfilling/accepting the gap (06-method2-v2-restructure.md).
+const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses V2";
 const ATTACHMENTS_TAB = process.env.ATTACHMENTS_TAB || "MQI Survey Attachments";
 
 function commonFields(payload: SubmitPayload, locationName = "") {
@@ -161,7 +173,10 @@ export async function appendMethod2Response(payload: SubmitPayload) {
   for (const loc of payload.locations) {
     const fields: Record<string, string> = {
       ...commonFields(payload, loc.name),
+      "Floor Level": loc.floorLevel,
       "Location Type": loc.type,
+      "Classroom Grade": loc.classroomGrade ?? "",
+      "Classroom Section": loc.classroomSection ?? "",
     };
     for (const [itemName, condition] of Object.entries(loc.scores)) {
       fields[itemName] = condition;
