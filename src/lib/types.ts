@@ -20,7 +20,7 @@ export interface RubricItem {
 }
 
 export type WorkCategory =
-  | "Internal Civil Works"
+  | "Building Civil Works"
   | "Carpentry Works"
   | "Paint Works"
   | "External Development Works"
