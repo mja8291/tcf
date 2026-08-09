@@ -6,7 +6,7 @@ import { aggregateMethod2, ratingBand } from "@/lib/scoring";
 import type { Condition, Method2Location, RubricItem } from "@/lib/types";
 
 const METHOD1_TAB = process.env.METHOD1_RESPONSE_TAB || "Method 1 Responses";
-const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses V2";
+const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses";
 
 export interface FoundSurvey {
   method: 1 | 2;

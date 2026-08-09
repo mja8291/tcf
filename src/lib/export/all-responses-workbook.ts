@@ -17,6 +17,6 @@ function addSheet(wb: ExcelJS.Workbook, name: string, rows: Record<string, strin
 export function buildAllResponsesWorkbook(method1Rows: Record<string, string>[], method2Rows: Record<string, string>[]): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   addSheet(wb, "Method 1 Responses", method1Rows);
-  addSheet(wb, "Method 2 Responses V2", method2Rows);
+  addSheet(wb, "Method 2 Responses", method2Rows);
   return wb;
 }

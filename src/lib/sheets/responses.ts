@@ -120,12 +120,10 @@ function requireSpreadsheetId(): string {
 }
 
 const METHOD1_TAB = process.env.METHOD1_RESPONSE_TAB || "Method 1 Responses";
-// A NEW tab, deliberately not "Method 2 Responses" — that tab already has 19
-// real submitted rows against the old 23-item-group rubric. Writing the new
-// 44-item schema into the same columns would silently misalign or drop data.
-// Don't repoint this at the live tab without a decision from Junaid on
-// archiving/backfilling/accepting the gap (06-method2-v2-restructure.md).
-const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses V2";
+// "Method 2 Responses" now holds the v2 (44-item, floor/location/work-category)
+// schema. The old 23-item-group tab was replaced on 2026-08-09 — its 19 rows
+// were test data, confirmed with Junaid, and were deleted rather than migrated.
+const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses";
 const ATTACHMENTS_TAB = process.env.ATTACHMENTS_TAB || "MQI Survey Attachments";
 
 function commonFields(payload: SubmitPayload, locationName = "") {

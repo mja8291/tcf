@@ -18,7 +18,7 @@ export interface DashboardData {
 }
 
 const METHOD1_TAB = process.env.METHOD1_RESPONSE_TAB || "Method 1 Responses";
-const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses V2";
+const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses";
 
 let cache: { data: DashboardData; fetchedAt: number } | null = null;
 const CACHE_MS = 5 * 60 * 1000;
