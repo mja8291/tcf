@@ -3,6 +3,7 @@
 import { Camera, Info, StickyNote } from "lucide-react";
 import { useState } from "react";
 import type { Condition, RubricItem } from "@/lib/types";
+import { compressImage } from "@/lib/image/compress";
 import { ConditionPills } from "./ConditionPills";
 import { IconButton } from "./IconButton";
 import { ConditionInfoPanel } from "./ConditionInfoPanel";
@@ -30,7 +31,21 @@ export function ItemRow({
 }: ItemRowProps) {
   const [infoOpen, setInfoOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(Boolean(note));
+  const [compressing, setCompressing] = useState(false);
   const inputId = `photo_${item.name.replace(/[^a-zA-Z0-9]/g, "_")}`;
+
+  async function handlePhotoPick(file: File | undefined) {
+    if (!file) {
+      onPhotoChange(undefined);
+      return;
+    }
+    setCompressing(true);
+    try {
+      onPhotoChange(await compressImage(file));
+    } finally {
+      setCompressing(false);
+    }
+  }
 
   return (
     <div className="py-2.5 border-b border-border">
@@ -47,6 +62,7 @@ export function ItemRow({
             active={Boolean(photo)}
             aria-label="Attach photo"
             onClick={() => document.getElementById(inputId)?.click()}
+            disabled={compressing}
           >
             <Camera size={16} />
           </IconButton>
@@ -59,12 +75,18 @@ export function ItemRow({
             accept="image/*"
             capture="environment"
             className="hidden"
-            onChange={(e) => onPhotoChange(e.target.files?.[0])}
+            onChange={(e) => handlePhotoPick(e.target.files?.[0])}
           />
         </div>
       </div>
       <ConditionPills value={value} onChange={onScoreChange} />
-      {photo ? <div className="text-[11px] text-ink-faint mt-1">Attached: {photo.name}</div> : null}
+      {compressing ? (
+        <div className="text-[11px] text-ink-faint mt-1">Compressing photo…</div>
+      ) : photo ? (
+        <div className="text-[11px] text-ink-faint mt-1">
+          Attached: {photo.name} ({(photo.size / 1024).toFixed(0)} KB)
+        </div>
+      ) : null}
       {noteOpen ? (
         <input
           type="text"
