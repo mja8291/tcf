@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     "Maintenance Quality Index inspections for TCF school campuses — works offline, syncs when back online.",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "MQI Survey",
   },
   icons: {
@@ -28,6 +28,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   themeColor: "#0e5c4d",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
