@@ -20,16 +20,26 @@ export async function POST(req: Request) {
 
   // Upload every attached photo to Drive, keyed by attachmentKey so we can
   // match it back to its item/location when writing the attachments tab.
+  const submittedAt = new Date();
   const photoUrlByKey = new Map<string, string>();
-  for (const { attachmentKey } of payload.photoKeys) {
+  for (const { attachmentKey, itemName } of payload.photoKeys) {
     const file = formData.get(`photo:${attachmentKey}`);
     if (!(file instanceof File)) continue;
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Method 2 attachment keys are "{locationId}::{itemName}" (see submit.ts)
+    // — look the location back up for its floor/type/name so the Drive
+    // folder can name itself after where the photo was actually taken.
+    const locationId = payload.method === 2 ? attachmentKey.split("::")[0] : undefined;
+    const location = locationId ? payload.locations?.find((l) => l.id === locationId) : undefined;
+
     const url = await uploadSurveyPhoto({
       region: payload.school.region,
       campusName: payload.school.name,
       surveyId: payload.surveyId,
-      filename: file.name || `${attachmentKey}.jpg`,
+      submittedAt,
+      itemName,
+      location: location ? { floorLevel: location.floorLevel, type: location.type, name: location.name } : undefined,
       mimeType: file.type || "image/jpeg",
       buffer,
     });
