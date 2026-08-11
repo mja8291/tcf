@@ -24,7 +24,7 @@ export async function getSchools(): Promise<School[]> {
   }
 
   const tab = process.env.SCHOOLS_SHEET_TAB || "Schools (All Units)";
-  const sheets = getSheetsClient();
+  const sheets = await getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.SCHOOLS_SPREADSHEET_ID,
     range: tab,

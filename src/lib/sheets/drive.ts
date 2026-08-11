@@ -9,7 +9,7 @@ async function findOrCreateFolder(name: string, parentId: string): Promise<strin
   const cached = folderCache.get(cacheKey);
   if (cached) return cached;
 
-  const drive = getDriveClient();
+  const drive = await getDriveClient();
   const escaped = name.replace(/'/g, "\\'");
   const list = await drive.files.list({
     q: `'${parentId}' in parents and name = '${escaped}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
@@ -50,7 +50,7 @@ export async function uploadSurveyPhoto(params: {
   const campusFolder = await findOrCreateFolder(params.campusName || "Unspecified Campus", regionFolder);
   const surveyFolder = await findOrCreateFolder(params.surveyId, campusFolder);
 
-  const drive = getDriveClient();
+  const drive = await getDriveClient();
   const res = await drive.files.create({
     requestBody: { name: params.filename, parents: [surveyFolder] },
     media: { mimeType: params.mimeType, body: Readable.from(params.buffer) },

@@ -51,7 +51,7 @@ async function ensureTab(spreadsheetId: string, tab: string, desiredHeader: stri
   const cacheKey = `${spreadsheetId}/${tab}`;
   if (ensuredTabs.has(cacheKey)) return;
 
-  const sheets = getSheetsClient();
+  const sheets = await getSheetsClient();
   const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: "sheets.properties.title" });
   const exists = (meta.data.sheets ?? []).some((s) => s.properties?.title === tab);
 
@@ -104,7 +104,7 @@ async function appendRowByHeader(
     const key = Object.keys(fields).find((k) => k.toLowerCase() === lower[i]);
     return key ? fields[key] : "";
   });
-  const sheets = getSheetsClient();
+  const sheets = await getSheetsClient();
   await sheets.spreadsheets.values.append({
     spreadsheetId,
     range: tab,

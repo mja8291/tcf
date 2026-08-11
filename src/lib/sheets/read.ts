@@ -3,7 +3,7 @@ import { getSheetsClient } from "./client";
 
 /** Reads a tab as an array of header-keyed row objects. */
 export async function readRowsByHeader(spreadsheetId: string, tab: string): Promise<Record<string, string>[]> {
-  const sheets = getSheetsClient();
+  const sheets = await getSheetsClient();
   const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: tab });
   const rows = res.data.values ?? [];
   if (rows.length < 2) return [];
