@@ -270,6 +270,14 @@ export const METHOD2_GROUPS: Method2Group[] = [
     weight: 4,
     workCategory: "Building Civil Works",
     locations: [ROOF],
+    // Rubric sheet only labels 2 of the 5 checkbox slots for this item
+    // (verified 2026-08-14 after the sheet's stray-text mixup on the
+    // adjacent Parapet Wall row was fixed) — same Ok/Poor scores as
+    // everywhere else, just item-specific button text.
+    conditionOverride: [
+      { condition: "Ok", label: "Roof Access Available" },
+      { condition: "Poor", label: "Roof Access Not Available" },
+    ],
   }),
   worst({
     name: "Cracks visibility in roof",

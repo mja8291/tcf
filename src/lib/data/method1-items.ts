@@ -41,7 +41,19 @@ export const METHOD1_ITEMS: RubricItem[] = [
   { name: "Grill gate of lab *", category: "Safety", weight: 5, principalMaintained: true },
   { name: "Doors *", category: "Safety", weight: 7, principalMaintained: true },
   { name: "Main Gate", category: "Safety", weight: 7 },
-  { name: "Access to roof area /tanks", category: "Safety", weight: 4 },
+  {
+    name: "Access to roof area /tanks",
+    category: "Safety",
+    weight: 4,
+    // Rubric sheet only labels 2 of the 5 checkbox slots for this item
+    // (verified 2026-08-14 after the sheet's stray-text mixup on the
+    // adjacent Parapet Wall row was fixed) — same Ok/Poor scores as
+    // everywhere else, just item-specific button text.
+    conditionOverride: [
+      { condition: "Ok", label: "Roof Access Available" },
+      { condition: "Poor", label: "Roof Access Not Available" },
+    ],
+  },
   { name: "Cracks visibility in roof", category: "Safety", weight: 14 },
   { name: "Cracks visibility in columns", category: "Safety", weight: 7 },
   { name: "Cracks visibility in walls", category: "Safety", weight: 7 },

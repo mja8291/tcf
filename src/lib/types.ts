@@ -17,6 +17,16 @@ export interface RubricItem {
   weight: number;
   /** Maintained by School Principal/Area Office rather than Engineering/R&M. Display-only marker. */
   principalMaintained?: boolean;
+  /**
+   * Restricts the item's picker to a subset of Condition values with custom
+   * display text, for items whose rubric sheet defines fewer than the usual
+   * 4 condition states. E.g. "Access to roof area /tanks" only offers two
+   * states in the rubric ("Roof Access Available" / "Roof Access Not
+   * Available"), mapped onto the existing Ok/Poor slots — same
+   * CONDITION_SCORE values and 0-100% scale as every other item, just a
+   * narrower, relabeled set of buttons. N/A remains selectable regardless.
+   */
+  conditionOverride?: { condition: Exclude<Condition, "N/A">; label: string }[];
 }
 
 export type WorkCategory =

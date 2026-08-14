@@ -79,7 +79,7 @@ export function ItemRow({
           />
         </div>
       </div>
-      <ConditionPills value={value} onChange={onScoreChange} />
+      <ConditionPills value={value} onChange={onScoreChange} options={item.conditionOverride} />
       {compressing ? (
         <div className="text-[11px] text-ink-faint mt-1">Compressing photo…</div>
       ) : photo ? (
