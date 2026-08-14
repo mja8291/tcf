@@ -72,12 +72,36 @@ export default function DashboardPage() {
               value={data.overallBand ?? "—"}
               color={data.overallBand ? BAND_COLOR[data.overallBand] : undefined}
             />
+            <StatCard
+              label="Avg Major score"
+              value={data.averageMajorScore === null ? "—" : `${Math.round(data.averageMajorScore)}%`}
+              sub="Engineering Dept."
+              color={bandColor(data.averageMajorScore)}
+            />
+            <StatCard
+              label="Avg Minor score"
+              value={data.averageMinorScore === null ? "—" : `${Math.round(data.averageMinorScore)}%`}
+              sub="School staff"
+              color={bandColor(data.averageMinorScore)}
+            />
           </div>
 
           <div className="text-xs font-semibold text-brand-deep uppercase tracking-wide mt-4 mb-2.5">
             Score distribution
           </div>
           <ScoreDistribution distribution={data.distribution} />
+
+          <div className="text-xs font-semibold text-brand-deep uppercase tracking-wide mt-5 mb-2.5">
+            Critical items (campus average)
+          </div>
+          <div className="rounded-2xl border border-border bg-card divide-y divide-border mb-1">
+            {Object.entries(data.criticalItemAverages).map(([name, avg]) => (
+              <div key={name} className="flex justify-between items-center px-3.5 py-2.5 text-[13px]">
+                <span className="text-ink-soft">{name.replace(" *", "")}</span>
+                <span className="font-semibold text-ink">{avg === null ? "—" : `${Math.round(avg)}%`}</span>
+              </div>
+            ))}
+          </div>
 
           <div className="text-xs font-semibold text-brand-deep uppercase tracking-wide mt-5 mb-2.5">By region</div>
           {data.byRegion.length === 0 ? (

@@ -1,4 +1,4 @@
-import type { FloorLevel, LocationType, Method2Group, WorkCategory } from "@/lib/types";
+import type { Condition, FloorLevel, LocationType, Method2Group, WorkCategory } from "@/lib/types";
 
 /**
  * Method 2 v2 — 44 items across 6 work categories, per
@@ -437,6 +437,11 @@ export const CLASSROOM_SECTIONS = ["A", "B", "C", "D", "E", "Red", "Yellow", "Gr
 
 export function method2GroupsForLocation(type: LocationType): Method2Group[] {
   return METHOD2_GROUPS.filter((g) => g.locations.includes(type));
+}
+
+/** True once every item applicable to this location (across all its work categories) has a score — the same completeness rule the per-category Scoring page already enforces, applied to a whole recorded location at once. */
+export function isMethod2LocationComplete(location: { type: LocationType; scores: Record<string, Condition> }): boolean {
+  return method2GroupsForLocation(location.type).every((g) => Boolean(location.scores[g.name]));
 }
 
 export function method2GroupsForLocationAndCategory(type: LocationType, workCategory: WorkCategory): Method2Group[] {

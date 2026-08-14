@@ -2,7 +2,7 @@ import "server-only";
 import { sheetsConfigured } from "./client";
 import { getSchools } from "./schools";
 import { readRowsByHeader } from "./read";
-import { ratingBand } from "@/lib/scoring";
+import { CRITICAL_ITEMS, ratingBand } from "@/lib/scoring";
 import type { RatingBand } from "@/lib/types";
 import { MOCK_CAPTURED_SCHOOLS, type CapturedSchool } from "@/lib/data/mock-dashboard";
 
@@ -12,6 +12,10 @@ export interface DashboardData {
   pending: number;
   averageScore: number | null;
   overallBand: RatingBand | null;
+  averageMajorScore: number | null;
+  averageMinorScore: number | null;
+  /** Campus-average score per critical-item watchlist entry, across captured schools that have a value for it. */
+  criticalItemAverages: Record<string, number | null>;
   distribution: Record<RatingBand, number>;
   byRegion: { region: string; average: number; count: number }[];
   schools: CapturedSchool[];
@@ -67,10 +71,18 @@ export async function getDashboardData(): Promise<DashboardData> {
   return data;
 }
 
+function num(v: string | undefined): number | null {
+  if (!v) return null;
+  const n = Number(v);
+  return Number.isNaN(n) ? null : n;
+}
+
 function rowToCaptured(r: Record<string, string>, method: 1 | 2): CapturedSchool | null {
   const overallRaw = r["Overall Score"];
   const overall = overallRaw ? Number(overallRaw) : NaN;
   if (!r["School ID"] || Number.isNaN(overall)) return null;
+  const criticalItems: Record<string, number | null> = {};
+  for (const name of CRITICAL_ITEMS) criticalItems[name] = num(r[`Critical: ${name}`]);
   return {
     schoolId: r["School ID"],
     surveyId: r["Survey ID"] || "",
@@ -81,7 +93,16 @@ function rowToCaptured(r: Record<string, string>, method: 1 | 2): CapturedSchool
     date: r["Timestamp"] || "",
     overall,
     band: (r["Rating Band"] as RatingBand) || ratingBand(overall) || "Poor",
+    major: num(r["Major Score"]),
+    minor: num(r["Minor Score"]),
+    criticalItems,
   };
+}
+
+/** Average of whichever values aren't null — not the same as dividing by captured.length, since not every survey has every value (e.g. Major/Minor on rows written before this feature). */
+function averageOf(values: (number | null)[]): number | null {
+  const present = values.filter((v): v is number => v !== null);
+  return present.length ? present.reduce((a, b) => a + b, 0) / present.length : null;
 }
 
 function summarize(totalSchools: number, captured: CapturedSchool[]): DashboardData {
@@ -89,6 +110,13 @@ function summarize(totalSchools: number, captured: CapturedSchool[]): DashboardD
   for (const s of captured) distribution[s.band]++;
 
   const averageScore = captured.length ? captured.reduce((sum, s) => sum + s.overall, 0) / captured.length : null;
+  const averageMajorScore = averageOf(captured.map((s) => s.major));
+  const averageMinorScore = averageOf(captured.map((s) => s.minor));
+
+  const criticalItemAverages: Record<string, number | null> = {};
+  for (const name of CRITICAL_ITEMS) {
+    criticalItemAverages[name] = averageOf(captured.map((s) => s.criticalItems[name] ?? null));
+  }
 
   const regionMap = new Map<string, { total: number; count: number }>();
   for (const s of captured) {
@@ -107,6 +135,9 @@ function summarize(totalSchools: number, captured: CapturedSchool[]): DashboardD
     pending: Math.max(totalSchools, captured.length) - captured.length,
     averageScore,
     overallBand: ratingBand(averageScore),
+    averageMajorScore,
+    averageMinorScore,
+    criticalItemAverages,
     distribution,
     byRegion,
     schools: [...captured].sort((a, b) => b.date.localeCompare(a.date)),

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ScreenShell } from "@/components/ui/ScreenShell";
 import { TopBar } from "@/components/ui/TopBar";
 import { Gauge } from "@/components/ui/Gauge";
 import { Button } from "@/components/ui/Button";
 import { BottomBar } from "@/components/ui/BottomBar";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CategoryCard } from "@/components/survey/CategoryCard";
 import { useSurvey } from "@/lib/survey-context";
 import { METHOD1_ITEMS } from "@/lib/data/method1-items";
@@ -14,7 +15,8 @@ import { CATEGORIES, CATEGORY_WEIGHT, scoreMethod1 } from "@/lib/scoring";
 
 export default function Method1CategoriesPage() {
   const router = useRouter();
-  const { state } = useSurvey();
+  const { state, discardMethodProgress } = useSurvey();
+  const [confirmBack, setConfirmBack] = useState(false);
 
   useEffect(() => {
     if (!state.school || state.method !== 1) router.replace("/survey/find-school");
@@ -26,9 +28,21 @@ export default function Method1CategoriesPage() {
   const allAnswered = answeredTotal === METHOD1_ITEMS.length;
   const result = scoreMethod1(state.m1.scores);
 
+  function confirmDiscardAndGoBack() {
+    discardMethodProgress();
+    router.push("/survey/method");
+  }
+
   return (
     <ScreenShell>
-      <TopBar title="Campus scoring" onBack={() => router.push("/survey/method")} />
+      <TopBar title="Campus scoring" onBack={() => setConfirmBack(true)} />
+      <ConfirmDialog
+        open={confirmBack}
+        title="Discard this assessment?"
+        message="Going back will discard your progress and reset the timer. Continue?"
+        onConfirm={confirmDiscardAndGoBack}
+        onCancel={() => setConfirmBack(false)}
+      />
 
       {CATEGORIES.map((cat) => {
         const items = METHOD1_ITEMS.filter((i) => i.category === cat);

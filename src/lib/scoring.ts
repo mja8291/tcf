@@ -57,6 +57,11 @@ function weightedAverage<T>(
   return weightSum > 0 ? valueSum / weightSum : null;
 }
 
+/** Each item's effective weight for a cross-category score: categoryWeight% * itemWeight-within-category%. */
+function effectiveWeight(item: RubricItem): number {
+  return CATEGORY_WEIGHT[item.category] * item.weight;
+}
+
 function scoreItemSet(items: RubricItem[], valueOf: (item: RubricItem) => number | undefined): ScoreResult {
   const categories = {} as Record<Category, CategoryScoreResult>;
   for (const category of CATEGORIES) {
@@ -70,16 +75,55 @@ function scoreItemSet(items: RubricItem[], valueOf: (item: RubricItem) => number
   // Overall uses the identical renormalizing formula across the *full* item
   // set, not a combination of category scores — mathematically equivalent
   // when nothing is N/A, but correct when it is (01-data-and-scoring.md).
-  // Each item's effective weight is categoryWeight% * itemWeight-within-category%,
-  // since item weights only sum to 100 *within* their own category.
-  const overall = weightedAverage(
-    items,
-    (i) => CATEGORY_WEIGHT[i.category] * i.weight,
+  const overall = weightedAverage(items, effectiveWeight, valueOf);
+
+  // Major (Engineering Department's responsibility) vs Minor (school staff's
+  // own routine maintenance, items marked "*") — same formula, restricted to
+  // one subset at a time. weightedAverage's denominator is only the summed
+  // weight of whichever items are passed in, so this renormalizes itself:
+  // Major items' weights implicitly sum to 100% among themselves, and same
+  // for Minor, without being diluted by (or sharing a denominator with) the
+  // other subset.
+  const major = weightedAverage(
+    items.filter((i) => !i.principalMaintained),
+    effectiveWeight,
+    valueOf
+  );
+  const minor = weightedAverage(
+    items.filter((i) => i.principalMaintained),
+    effectiveWeight,
     valueOf
   );
 
-  return { overall, categories };
+  // Fixed 7-item watchlist, individual/unaggregated — deliberately mixes
+  // Major and Minor items (Green board is the one Minor item here). For
+  // Method 2, `items`/`valueOf` already reflect each group's normal
+  // worst-case/average roll-up across locations (scoreMethod2 passes the
+  // same aggregateMethod2() result used everywhere else), so this doesn't
+  // invent a separate rule — it just reads the existing per-item value.
+  const byName = new Map(items.map((i) => [i.name, i]));
+  const criticalItems: Record<string, number | null> = {};
+  for (const name of CRITICAL_ITEMS) {
+    const item = byName.get(name);
+    criticalItems[name] = item ? (valueOf(item) ?? null) : null;
+  }
+
+  return { overall, major, minor, categories, criticalItems };
 }
+
+/**
+ * Fixed watchlist TCF wants surfaced independent of any category/Major-Minor
+ * rollup, on both the post-submission summary and the dashboard.
+ */
+export const CRITICAL_ITEMS = [
+  "Cracks visibility in roof",
+  "Green board *",
+  "Roof Screeding/roof drainage",
+  "Roof leakage/seepage",
+  "Visibility of dampness",
+  "Internal Paint",
+  "External Fascade (Exterior Finish)",
+] as const;
 
 export function scoreMethod1(scores: Record<string, Condition>): ScoreResult {
   return scoreItemSet(METHOD1_ITEMS, (item) => conditionToScore(scores[item.name]));

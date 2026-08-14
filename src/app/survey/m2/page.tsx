@@ -1,21 +1,23 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, AlertCircle } from "lucide-react";
 import { ScreenShell } from "@/components/ui/ScreenShell";
 import { TopBar } from "@/components/ui/TopBar";
 import { Gauge } from "@/components/ui/Gauge";
 import { Button } from "@/components/ui/Button";
 import { BottomBar } from "@/components/ui/BottomBar";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useSurvey } from "@/lib/survey-context";
-import { FLOOR_LEVELS } from "@/lib/data/method2-items";
+import { FLOOR_LEVELS, isMethod2LocationComplete } from "@/lib/data/method2-items";
 import { scoreMethod2 } from "@/lib/scoring";
 import type { FloorLevel } from "@/lib/types";
 
 export default function Method2FloorPage() {
   const router = useRouter();
-  const { state, m2SetFloor } = useSurvey();
+  const { state, m2SetFloor, discardMethodProgress } = useSurvey();
+  const [confirmBack, setConfirmBack] = useState(false);
 
   useEffect(() => {
     if (!state.school || state.method !== 2) router.replace("/survey/find-school");
@@ -25,6 +27,13 @@ export default function Method2FloorPage() {
 
   const result = scoreMethod2(state.m2.locations);
   const totalLocations = state.m2.locations.length;
+  const incompleteLocations = state.m2.locations.filter((l) => !isMethod2LocationComplete(l));
+  const canSubmit = totalLocations > 0 && incompleteLocations.length === 0;
+
+  function confirmDiscardAndGoBack() {
+    discardMethodProgress();
+    router.push("/survey/method");
+  }
 
   function chooseFloor(floor: FloorLevel) {
     if (floor === "Roof") {
@@ -38,7 +47,14 @@ export default function Method2FloorPage() {
 
   return (
     <ScreenShell>
-      <TopBar title="Floor level" onBack={() => router.push("/survey/method")} />
+      <TopBar title="Floor level" onBack={() => setConfirmBack(true)} />
+      <ConfirmDialog
+        open={confirmBack}
+        title="Discard this assessment?"
+        message="Going back will discard your progress and reset the timer. Continue?"
+        onConfirm={confirmDiscardAndGoBack}
+        onCancel={() => setConfirmBack(false)}
+      />
       <p className="text-[12.5px] text-ink-soft leading-snug mb-3.5">
         Pick the floor of the location you&apos;re about to score.
       </p>
@@ -61,16 +77,24 @@ export default function Method2FloorPage() {
           <div className="text-xs font-semibold text-brand-deep uppercase tracking-wide mb-2">
             Locations recorded ({totalLocations})
           </div>
-          {state.m2.locations.map((loc) => (
-            <div key={loc.id} className="flex items-center gap-2 py-2 border-b border-border text-[13px]">
-              <Check size={14} className="text-brand shrink-0" />
-              <span className="text-ink-faint">{loc.floorLevel}</span>
-              <span>·</span>
-              <span className="flex-1 truncate">
-                {loc.type} — {loc.name}
-              </span>
-            </div>
-          ))}
+          {state.m2.locations.map((loc) => {
+            const complete = isMethod2LocationComplete(loc);
+            return (
+              <div key={loc.id} className="flex items-center gap-2 py-2 border-b border-border text-[13px]">
+                {complete ? (
+                  <Check size={14} className="text-brand shrink-0" />
+                ) : (
+                  <AlertCircle size={14} className="text-band-average shrink-0" />
+                )}
+                <span className="text-ink-faint">{loc.floorLevel}</span>
+                <span>·</span>
+                <span className="flex-1 truncate">
+                  {loc.type} — {loc.name}
+                </span>
+                {!complete ? <span className="text-band-average text-[11px] shrink-0">Incomplete</span> : null}
+              </div>
+            );
+          })}
         </div>
       ) : null}
 
@@ -84,12 +108,18 @@ export default function Method2FloorPage() {
             </div>
           </div>
         </div>
-        <Button disabled={totalLocations === 0} onClick={() => router.push("/survey/review")}>
+        <Button disabled={!canSubmit} onClick={() => router.push("/survey/review")}>
           Review and submit
         </Button>
         {totalLocations === 0 ? (
           <p className="text-center text-[11.5px] text-ink-faint mt-2.5">
             Record at least one location to continue.
+          </p>
+        ) : incompleteLocations.length > 0 ? (
+          <p className="text-center text-[11.5px] text-band-average mt-2.5">
+            {incompleteLocations.length === 1
+              ? "1 location has an unscored category — open it and score every category to continue."
+              : `${incompleteLocations.length} locations have unscored categories — open each and score every category to continue.`}
           </p>
         ) : null}
       </BottomBar>

@@ -95,7 +95,13 @@ export interface CategoryScoreResult {
 
 export interface ScoreResult {
   overall: number | null;
+  /** Engineering Department's responsibility -- items without "*" in their name, renormalized to their own 100%. */
+  major: number | null;
+  /** School staff's own routine-maintenance responsibility -- items with "*" in their name, renormalized to their own 100%. */
+  minor: number | null;
   categories: Record<Category, CategoryScoreResult>;
+  /** Fixed 7-item watchlist (see scoring.ts CRITICAL_ITEMS), individual/unaggregated. */
+  criticalItems: Record<string, number | null>;
 }
 
 export type RatingBand = "Poor" | "Average" | "Good" | "Excellent";

@@ -23,6 +23,8 @@ interface SubmitState {
   complaints: string;
   m1: { scores: Record<string, Condition>; photos: Record<string, File>; notes: Record<string, string> };
   m2: { locations: SubmitLocation[] };
+  /** ISO timestamp set when the method was chosen — see survey-context.tsx SET_METHOD. */
+  startTime: string | null;
 }
 
 export interface SubmitPayload {
@@ -38,6 +40,16 @@ export interface SubmitPayload {
   functionality: number | null;
   safety: number | null;
   aesthetics: number | null;
+  /** Engineering Department's responsibility (non-"*" items), renormalized to its own 100%. */
+  major: number | null;
+  /** School staff's own routine maintenance ("*" items), renormalized to its own 100%. */
+  minor: number | null;
+  /** Fixed 7-item watchlist (scoring.ts CRITICAL_ITEMS), individual/unaggregated. */
+  criticalItems: Record<string, number | null>;
+  /** ISO timestamps + elapsed seconds between method selection and submission. startTime is null if the method was somehow never recorded (shouldn't happen, but don't crash the submit over it). */
+  startTime: string | null;
+  endTime: string;
+  timeTakenSeconds: number | null;
   scores: Record<string, Condition>;
   locations?: {
     id: string;
@@ -81,6 +93,11 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
   const photoKeys: SubmitPayload["photoKeys"] = [];
   const notes: SubmitPayload["notes"] = [];
 
+  const endTime = new Date().toISOString();
+  const timeTakenSeconds = state.startTime
+    ? Math.max(0, Math.round((new Date(endTime).getTime() - new Date(state.startTime).getTime()) / 1000))
+    : null;
+
   if (state.method === 1) {
     for (const [itemName, file] of Object.entries(state.m1.photos)) {
       const key = itemName;
@@ -116,6 +133,12 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
     functionality: result.categories.Functionality.score,
     safety: result.categories.Safety.score,
     aesthetics: result.categories.Aesthetics.score,
+    major: result.major,
+    minor: result.minor,
+    criticalItems: result.criticalItems,
+    startTime: state.startTime,
+    endTime,
+    timeTakenSeconds,
     scores: state.method === 1 ? state.m1.scores : {},
     locations:
       state.method === 2

@@ -35,6 +35,8 @@ interface SurveyState {
   };
   /** Set right after a successful (non-queued) submit, so the Done screen can offer downloads. */
   lastSurveyId: string | null;
+  /** ISO timestamp set the moment a method is chosen (not on page load, not on first item answered). Cleared if the user discards progress and goes back to method selection. */
+  startTime: string | null;
 }
 
 function initialState(): SurveyState {
@@ -49,6 +51,7 @@ function initialState(): SurveyState {
     m1: { scores: {}, photos: {}, notes: {} },
     m2: { locations: [], current: null },
     lastSurveyId: null,
+    startTime: null,
   };
 }
 
@@ -75,6 +78,7 @@ type Action =
   | { type: "M2_CURRENT_SET_PHOTO"; name: string; file: File | undefined }
   | { type: "M2_CURRENT_SET_NOTE"; name: string; value: string }
   | { type: "M2_FINALIZE_CURRENT" }
+  | { type: "DISCARD_METHOD_PROGRESS" }
   | { type: "RESET" };
 
 function reducer(state: SurveyState, action: Action): SurveyState {
@@ -82,7 +86,9 @@ function reducer(state: SurveyState, action: Action): SurveyState {
     case "SET_SCHOOL":
       return { ...state, school: action.school };
     case "SET_METHOD":
-      return { ...state, method: action.method };
+      // startTime is set here, not on page load or first item answered — the
+      // moment a method is actually chosen is what "starting the assessment" means.
+      return { ...state, method: action.method, startTime: new Date().toISOString() };
     case "SET_RESPONDENT":
       return { ...state, asm: action.asm, apm: action.apm, principal: action.principal };
     case "SET_POWER_SUPPLY":
@@ -183,6 +189,22 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       };
       return { ...state, m2: { ...state.m2, locations: [...state.m2.locations, location], current: null } };
     }
+    case "DISCARD_METHOD_PROGRESS":
+      // Confirmed navigation back to method selection: clear every response
+      // entered in this session and the timer — but not school/respondent
+      // details (re-typing names would be bad UX for the same screen
+      // they're landing back on), and deliberately *not* `method` either:
+      // nulling it here races the m1/m2 pages' own "state.method !== N"
+      // guard effect, which fires on the same still-mounted page before our
+      // router.push("/survey/method") completes and redirects to
+      // find-school instead. Leaving it as-is is harmless — setMethod
+      // overwrites it the moment they pick again on that screen.
+      return {
+        ...state,
+        m1: { scores: {}, photos: {}, notes: {} },
+        m2: { locations: [], current: null },
+        startTime: null,
+      };
     case "RESET":
       return initialState();
     default:
@@ -210,6 +232,7 @@ interface SurveyContextValue {
   m2CurrentSetPhoto: (name: string, file: File | undefined) => void;
   m2CurrentSetNote: (name: string, value: string) => void;
   m2FinalizeCurrent: () => void;
+  discardMethodProgress: () => void;
   reset: () => void;
 }
 
@@ -240,6 +263,7 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       m2CurrentSetPhoto: (name, file) => dispatch({ type: "M2_CURRENT_SET_PHOTO", name, file }),
       m2CurrentSetNote: (name, value) => dispatch({ type: "M2_CURRENT_SET_NOTE", name, value }),
       m2FinalizeCurrent: () => dispatch({ type: "M2_FINALIZE_CURRENT" }),
+      discardMethodProgress: () => dispatch({ type: "DISCARD_METHOD_PROGRESS" }),
       reset: () => dispatch({ type: "RESET" }),
     }),
     [state]

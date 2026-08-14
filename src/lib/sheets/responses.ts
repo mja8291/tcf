@@ -1,9 +1,16 @@
 import "server-only";
 import { getSheetsClient } from "./client";
-import { ratingBand } from "@/lib/scoring";
+import { CRITICAL_ITEMS, ratingBand } from "@/lib/scoring";
 import { METHOD1_ITEMS } from "@/lib/data/method1-items";
 import { METHOD2_GROUPS } from "@/lib/data/method2-items";
 import type { SubmitPayload } from "@/lib/submit";
+
+/** Column name for a critical item's pre-aggregated summary value — distinct
+ * from the item's own raw per-location column (same name as the rubric item)
+ * so the two never collide in the header lookup. */
+function criticalColumn(itemName: string): string {
+  return `Critical: ${itemName}`;
+}
 
 const COMMON_HEADER = [
   "Survey ID",
@@ -26,7 +33,20 @@ const COMMON_HEADER = [
   "Oath",
 ];
 
-const METHOD1_HEADER = [...COMMON_HEADER, ...METHOD1_ITEMS.map((i) => i.name)];
+// Appended (not inserted) after the item columns, matching how they were
+// added to the already-live "Method 1 Responses" / "Method 2 Responses"
+// tabs — those existing sheets keep their original column order untouched,
+// with anything new appended at the end (2026-08-12).
+const TRAILING_HEADER = [
+  "Major Score",
+  "Minor Score",
+  "Start Time",
+  "End Time",
+  "Time Taken (seconds)",
+  ...CRITICAL_ITEMS.map(criticalColumn),
+];
+
+const METHOD1_HEADER = [...COMMON_HEADER, ...METHOD1_ITEMS.map((i) => i.name), ...TRAILING_HEADER];
 const METHOD2_HEADER = [
   ...COMMON_HEADER,
   "Floor Level",
@@ -34,6 +54,7 @@ const METHOD2_HEADER = [
   "Classroom Grade",
   "Classroom Section",
   ...METHOD2_GROUPS.map((g) => g.name),
+  ...TRAILING_HEADER,
 ];
 const ATTACHMENTS_HEADER = ["Survey ID", "Item Name", "Location Name", "Photo URL", "Note"];
 
@@ -126,8 +147,8 @@ const METHOD1_TAB = process.env.METHOD1_RESPONSE_TAB || "Method 1 Responses";
 const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses";
 const ATTACHMENTS_TAB = process.env.ATTACHMENTS_TAB || "MQI Survey Attachments";
 
-function commonFields(payload: SubmitPayload, locationName = "") {
-  return {
+function commonFields(payload: SubmitPayload, locationName = ""): Record<string, string> {
+  const fields: Record<string, string> = {
     "Survey ID": payload.surveyId,
     Timestamp: new Date().toISOString(),
     "Campus Name": payload.school.name,
@@ -146,7 +167,16 @@ function commonFields(payload: SubmitPayload, locationName = "") {
     "Aesthetics Score": payload.aesthetics === null ? "" : String(Math.round(payload.aesthetics)),
     "Rating Band": ratingBand(payload.overall) ?? "",
     Oath: "Affirm",
+    "Major Score": payload.major === null ? "" : String(Math.round(payload.major)),
+    "Minor Score": payload.minor === null ? "" : String(Math.round(payload.minor)),
+    "Start Time": payload.startTime ?? "",
+    "End Time": payload.endTime ?? "",
+    "Time Taken (seconds)": payload.timeTakenSeconds === null ? "" : String(payload.timeTakenSeconds),
   };
+  for (const [name, score] of Object.entries(payload.criticalItems)) {
+    fields[criticalColumn(name)] = score === null ? "" : String(Math.round(score));
+  }
+  return fields;
 }
 
 /** One row per submission — one column per Method 1 item, condition string as the value. */
