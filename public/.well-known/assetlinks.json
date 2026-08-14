@@ -3,8 +3,8 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "REPLACE_WITH_ANDROID_PACKAGE_NAME",
-      "sha256_cert_fingerprints": ["REPLACE_WITH_SHA256_FINGERPRINT_FROM_PLAY_CONSOLE"]
+      "package_name": "app.web.mqi_app_tcf.pk",
+      "sha256_cert_fingerprints": ["EA:5E:11:72:6D:CF:F6:C7:2E:49:27:E3:C1:82:D3:EC:56:C4:E0:23:54:C1:78:B3:8E:66:D7:E2:B2:C8:A6:34"]
     }
   }
 ]
