@@ -16,7 +16,7 @@ import type { FloorLevel } from "@/lib/types";
 
 export default function Method2FloorPage() {
   const router = useRouter();
-  const { state, m2SetFloor, discardMethodProgress } = useSurvey();
+  const { state, m2SetFloor, m2ResumeLocation, discardMethodProgress } = useSurvey();
   const [confirmBack, setConfirmBack] = useState(false);
 
   useEffect(() => {
@@ -80,7 +80,15 @@ export default function Method2FloorPage() {
           {state.m2.locations.map((loc) => {
             const complete = isMethod2LocationComplete(loc);
             return (
-              <div key={loc.id} className="flex items-center gap-2 py-2 border-b border-border text-[13px]">
+              <button
+                key={loc.id}
+                type="button"
+                onClick={() => {
+                  m2ResumeLocation(loc.id);
+                  router.push("/survey/m2/category");
+                }}
+                className="w-full flex items-center gap-2 py-2 border-b border-border text-[13px] text-left"
+              >
                 {complete ? (
                   <Check size={14} className="text-brand shrink-0" />
                 ) : (
@@ -92,7 +100,7 @@ export default function Method2FloorPage() {
                   {loc.type} — {loc.name}
                 </span>
                 {!complete ? <span className="text-band-average text-[11px] shrink-0">Incomplete</span> : null}
-              </div>
+              </button>
             );
           })}
         </div>

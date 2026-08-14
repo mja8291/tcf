@@ -78,6 +78,7 @@ type Action =
   | { type: "M2_CURRENT_SET_PHOTO"; name: string; file: File | undefined }
   | { type: "M2_CURRENT_SET_NOTE"; name: string; value: string }
   | { type: "M2_FINALIZE_CURRENT" }
+  | { type: "M2_RESUME_LOCATION"; id: string }
   | { type: "DISCARD_METHOD_PROGRESS" }
   | { type: "RESET" };
 
@@ -189,6 +190,30 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       };
       return { ...state, m2: { ...state.m2, locations: [...state.m2.locations, location], current: null } };
     }
+    case "M2_RESUME_LOCATION": {
+      // Pulls a previously-finalized location back into `current` for
+      // editing — the only way to fix an incomplete location (added
+      // alongside Task 3's submit-blocking validation: without this, an
+      // incomplete location had no path back to completion and would
+      // permanently block submission).
+      const location = state.m2.locations.find((l) => l.id === action.id);
+      if (!location) return state;
+      const current: M2Current = {
+        floorLevel: location.floorLevel,
+        type: location.type,
+        name: location.name,
+        classroomGrade: location.classroomGrade,
+        classroomSection: location.classroomSection,
+        activeWorkCategory: null,
+        scores: location.scores,
+        photos: location.photos,
+        notes: location.notes,
+      };
+      return {
+        ...state,
+        m2: { locations: state.m2.locations.filter((l) => l.id !== action.id), current },
+      };
+    }
     case "DISCARD_METHOD_PROGRESS":
       // Confirmed navigation back to method selection: clear every response
       // entered in this session and the timer — but not school/respondent
@@ -232,6 +257,7 @@ interface SurveyContextValue {
   m2CurrentSetPhoto: (name: string, file: File | undefined) => void;
   m2CurrentSetNote: (name: string, value: string) => void;
   m2FinalizeCurrent: () => void;
+  m2ResumeLocation: (id: string) => void;
   discardMethodProgress: () => void;
   reset: () => void;
 }
@@ -263,6 +289,7 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       m2CurrentSetPhoto: (name, file) => dispatch({ type: "M2_CURRENT_SET_PHOTO", name, file }),
       m2CurrentSetNote: (name, value) => dispatch({ type: "M2_CURRENT_SET_NOTE", name, value }),
       m2FinalizeCurrent: () => dispatch({ type: "M2_FINALIZE_CURRENT" }),
+      m2ResumeLocation: (id) => dispatch({ type: "M2_RESUME_LOCATION", id }),
       discardMethodProgress: () => dispatch({ type: "DISCARD_METHOD_PROGRESS" }),
       reset: () => dispatch({ type: "RESET" }),
     }),
