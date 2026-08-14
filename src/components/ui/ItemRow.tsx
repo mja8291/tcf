@@ -17,6 +17,8 @@ interface ItemRowProps {
   onScoreChange: (value: Condition) => void;
   onPhotoChange: (file: File | undefined) => void;
   onNoteChange: (value: string) => void;
+  /** Set after a blocked save/return attempt, for items still unscored — shows a red asterisk so the user can see exactly what's left. */
+  pending?: boolean;
 }
 
 export function ItemRow({
@@ -28,6 +30,7 @@ export function ItemRow({
   onScoreChange,
   onPhotoChange,
   onNoteChange,
+  pending,
 }: ItemRowProps) {
   const [infoOpen, setInfoOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(Boolean(note));
@@ -50,7 +53,21 @@ export function ItemRow({
   return (
     <div className="py-2.5 border-b border-border">
       <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="text-[13.5px] font-medium text-ink">{item.name}</span>
+        <span className="text-[13.5px] font-medium text-ink">
+          {item.name}
+          {pending ? (
+            // A badge, not a bare trailing character — several item names
+            // already end in "*" (the Minor/principal-maintained marker), so
+            // a second plain "*" right after would read as a stray typo
+            // rather than a distinct pending flag.
+            <span
+              className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-band-poor-tint align-middle text-[10.5px] font-bold text-band-poor"
+              aria-label="Still needs a response"
+            >
+              *
+            </span>
+          ) : null}
+        </span>
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="text-[10.5px] text-ink-faint whitespace-nowrap">
             {item.weight}%{worstCase ? " · worst-case" : ""}

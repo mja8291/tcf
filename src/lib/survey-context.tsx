@@ -37,6 +37,10 @@ interface SurveyState {
   lastSurveyId: string | null;
   /** ISO timestamp set the moment a method is chosen (not on page load, not on first item answered). Cleared if the user discards progress and goes back to method selection. */
   startTime: string | null;
+  /** ISO timestamp of the most recent pause, while paused; null once resumed (or if never paused). */
+  pausedAt: string | null;
+  /** Seconds accumulated across every *completed* pause span. Does not include a currently-open pause — see pausedAt. */
+  pausedSeconds: number;
 }
 
 function initialState(): SurveyState {
@@ -52,6 +56,8 @@ function initialState(): SurveyState {
     m2: { locations: [], current: null },
     lastSurveyId: null,
     startTime: null,
+    pausedAt: null,
+    pausedSeconds: 0,
   };
 }
 
@@ -80,6 +86,8 @@ type Action =
   | { type: "M2_FINALIZE_CURRENT" }
   | { type: "M2_RESUME_LOCATION"; id: string }
   | { type: "DISCARD_METHOD_PROGRESS" }
+  | { type: "PAUSE_TIMER" }
+  | { type: "RESUME_TIMER" }
   | { type: "RESET" };
 
 function reducer(state: SurveyState, action: Action): SurveyState {
@@ -89,7 +97,13 @@ function reducer(state: SurveyState, action: Action): SurveyState {
     case "SET_METHOD":
       // startTime is set here, not on page load or first item answered — the
       // moment a method is actually chosen is what "starting the assessment" means.
-      return { ...state, method: action.method, startTime: new Date().toISOString() };
+      return {
+        ...state,
+        method: action.method,
+        startTime: new Date().toISOString(),
+        pausedAt: null,
+        pausedSeconds: 0,
+      };
     case "SET_RESPONDENT":
       return { ...state, asm: action.asm, apm: action.apm, principal: action.principal };
     case "SET_POWER_SUPPLY":
@@ -214,6 +228,17 @@ function reducer(state: SurveyState, action: Action): SurveyState {
         m2: { locations: state.m2.locations.filter((l) => l.id !== action.id), current },
       };
     }
+    case "PAUSE_TIMER":
+      // No-op if the timer isn't running yet, or is already paused — avoids
+      // clobbering an earlier pausedAt (which would lose the time already
+      // accrued in the open span) on a duplicate click.
+      if (!state.startTime || state.pausedAt) return state;
+      return { ...state, pausedAt: new Date().toISOString() };
+    case "RESUME_TIMER": {
+      if (!state.pausedAt) return state;
+      const openPauseSeconds = (Date.now() - new Date(state.pausedAt).getTime()) / 1000;
+      return { ...state, pausedAt: null, pausedSeconds: state.pausedSeconds + openPauseSeconds };
+    }
     case "DISCARD_METHOD_PROGRESS":
       // Confirmed navigation back to method selection: clear every response
       // entered in this session and the timer — but not school/respondent
@@ -229,6 +254,8 @@ function reducer(state: SurveyState, action: Action): SurveyState {
         m1: { scores: {}, photos: {}, notes: {} },
         m2: { locations: [], current: null },
         startTime: null,
+        pausedAt: null,
+        pausedSeconds: 0,
       };
     case "RESET":
       return initialState();
@@ -259,6 +286,8 @@ interface SurveyContextValue {
   m2FinalizeCurrent: () => void;
   m2ResumeLocation: (id: string) => void;
   discardMethodProgress: () => void;
+  pauseTimer: () => void;
+  resumeTimer: () => void;
   reset: () => void;
 }
 
@@ -291,6 +320,8 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       m2FinalizeCurrent: () => dispatch({ type: "M2_FINALIZE_CURRENT" }),
       m2ResumeLocation: (id) => dispatch({ type: "M2_RESUME_LOCATION", id }),
       discardMethodProgress: () => dispatch({ type: "DISCARD_METHOD_PROGRESS" }),
+      pauseTimer: () => dispatch({ type: "PAUSE_TIMER" }),
+      resumeTimer: () => dispatch({ type: "RESUME_TIMER" }),
       reset: () => dispatch({ type: "RESET" }),
     }),
     [state]

@@ -16,6 +16,7 @@ import { OATH_TEXT, POWER_SUPPLY_OPTIONS } from "@/lib/data/content";
 import type { PowerSupply } from "@/lib/types";
 import { buildSubmission, formDataFromSubmission } from "@/lib/submit";
 import { queueSubmission } from "@/lib/offline/db";
+import { formatDuration } from "@/components/survey/SurveyTimerBar";
 
 export default function ReviewPage() {
   const router = useRouter();
@@ -44,6 +45,26 @@ export default function ReviewPage() {
     () => (state.method === 1 ? scoreMethod1(state.m1.scores) : scoreMethod2(state.m2.locations)),
     [state.method, state.m1.scores, state.m2.locations]
   );
+
+  // A snapshot, not a live tick — Date.now() can't be called during render
+  // (react-hooks/purity), and setState can't be called synchronously in an
+  // effect body (react-hooks/set-state-in-effect), so the read+set is
+  // deferred a microtask out via queueMicrotask. This recap row doesn't need
+  // to update every second the way the persistent timer bar does.
+  const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
+  useEffect(() => {
+    if (!state.startTime) {
+      queueMicrotask(() => setElapsedSeconds(null));
+      return;
+    }
+    const startTime = state.startTime;
+    const pausedAt = state.pausedAt;
+    const pausedSeconds = state.pausedSeconds;
+    queueMicrotask(() => {
+      const pausedTotal = pausedSeconds + (pausedAt ? (Date.now() - new Date(pausedAt).getTime()) / 1000 : 0);
+      setElapsedSeconds(Math.max(0, Math.round((Date.now() - new Date(startTime).getTime()) / 1000 - pausedTotal)));
+    });
+  }, [state.startTime, state.pausedAt, state.pausedSeconds]);
 
   if (!state.school || !state.method) return null;
 
@@ -95,6 +116,7 @@ export default function ReviewPage() {
         <RecapRow k="Responding ASM" v={state.asm || "—"} />
         <RecapRow k="School Principal" v={state.principal || "—"} />
         {state.method === 2 ? <RecapRow k="Locations recorded" v={String(state.m2.locations.length)} /> : null}
+        {elapsedSeconds !== null ? <RecapRow k="Time on assessment" v={formatDuration(elapsedSeconds)} /> : null}
       </div>
 
       <div className="rounded-2xl bg-brand-deep text-white p-4.5 text-center mb-4">

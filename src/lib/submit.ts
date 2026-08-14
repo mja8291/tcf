@@ -25,6 +25,9 @@ interface SubmitState {
   m2: { locations: SubmitLocation[] };
   /** ISO timestamp set when the method was chosen — see survey-context.tsx SET_METHOD. */
   startTime: string | null;
+  /** See survey-context.tsx PAUSE_TIMER/RESUME_TIMER. pausedAt is the still-open pause span (if any) at submit time; pausedSeconds is everything already accrued from earlier completed pauses. */
+  pausedAt: string | null;
+  pausedSeconds: number;
 }
 
 export interface SubmitPayload {
@@ -46,10 +49,12 @@ export interface SubmitPayload {
   minor: number | null;
   /** Fixed 7-item watchlist (scoring.ts CRITICAL_ITEMS), individual/unaggregated. */
   criticalItems: Record<string, number | null>;
-  /** ISO timestamps + elapsed seconds between method selection and submission. startTime is null if the method was somehow never recorded (shouldn't happen, but don't crash the submit over it). */
+  /** ISO timestamps + elapsed seconds between method selection and submission. startTime is null if the method was somehow never recorded (shouldn't happen, but don't crash the submit over it). timeTakenSeconds excludes any paused time — see pausedSeconds. */
   startTime: string | null;
   endTime: string;
   timeTakenSeconds: number | null;
+  /** Total seconds the assessment was paused for, including any pause still open at submit time. */
+  pausedSeconds: number;
   scores: Record<string, Condition>;
   locations?: {
     id: string;
@@ -94,8 +99,13 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
   const notes: SubmitPayload["notes"] = [];
 
   const endTime = new Date().toISOString();
+  const endMs = new Date(endTime).getTime();
+  // Any pause still open at submit time counts too — a user can in principle
+  // reach Review while paused (nothing forces a resume), so don't undercount it.
+  const openPauseSeconds = state.pausedAt ? Math.max(0, (endMs - new Date(state.pausedAt).getTime()) / 1000) : 0;
+  const pausedSeconds = Math.round(state.pausedSeconds + openPauseSeconds);
   const timeTakenSeconds = state.startTime
-    ? Math.max(0, Math.round((new Date(endTime).getTime() - new Date(state.startTime).getTime()) / 1000))
+    ? Math.max(0, Math.round((endMs - new Date(state.startTime).getTime()) / 1000) - pausedSeconds)
     : null;
 
   if (state.method === 1) {
@@ -139,6 +149,7 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
     startTime: state.startTime,
     endTime,
     timeTakenSeconds,
+    pausedSeconds,
     scores: state.method === 1 ? state.m1.scores : {},
     locations:
       state.method === 2

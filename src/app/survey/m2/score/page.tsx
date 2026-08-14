@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ScreenShell } from "@/components/ui/ScreenShell";
 import { TopBar } from "@/components/ui/TopBar";
@@ -14,6 +14,7 @@ export default function Method2ScorePage() {
   const router = useRouter();
   const { state, m2CurrentSetScore, m2CurrentSetPhoto, m2CurrentSetNote } = useSurvey();
   const current = state.m2.current;
+  const [attemptedSave, setAttemptedSave] = useState(false);
 
   useEffect(() => {
     if (!current || !current.type || !current.activeWorkCategory) router.replace("/survey/m2");
@@ -22,7 +23,13 @@ export default function Method2ScorePage() {
   if (!current || !current.type || !current.activeWorkCategory) return null;
 
   const items = method2GroupsForLocationAndCategory(current.type, current.activeWorkCategory);
-  const allAnswered = items.every((item) => Boolean(current.scores[item.name]));
+  const missing = items.filter((item) => !current.scores[item.name]);
+  const allAnswered = missing.length === 0;
+
+  function handleSave() {
+    if (allAnswered) router.push("/survey/m2/category");
+    else setAttemptedSave(true);
+  }
 
   return (
     <ScreenShell>
@@ -39,15 +46,18 @@ export default function Method2ScorePage() {
           onScoreChange={(v) => m2CurrentSetScore(item.name, v)}
           onPhotoChange={(f) => m2CurrentSetPhoto(item.name, f)}
           onNoteChange={(v) => m2CurrentSetNote(item.name, v)}
+          pending={attemptedSave && !current.scores[item.name]}
         />
       ))}
 
       <BottomBar>
-        <Button disabled={!allAnswered} onClick={() => router.push("/survey/m2/category")}>
+        <Button variant={allAnswered ? "primary" : "muted"} onClick={handleSave}>
           Save category and return
         </Button>
-        {!allAnswered ? (
-          <p className="text-center text-[11.5px] text-ink-faint mt-2.5">Score every item to continue.</p>
+        {attemptedSave && !allAnswered ? (
+          <p className="text-center text-[11.5px] text-band-poor mt-2.5">
+            {missing.length === 1 ? "1 item still needs a response." : `${missing.length} items still need a response.`}
+          </p>
         ) : null}
       </BottomBar>
     </ScreenShell>

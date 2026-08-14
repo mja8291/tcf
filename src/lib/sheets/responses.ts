@@ -44,6 +44,7 @@ const TRAILING_HEADER = [
   "End Time",
   "Time Taken (seconds)",
   ...CRITICAL_ITEMS.map(criticalColumn),
+  "Paused Duration (seconds)",
 ];
 
 const METHOD1_HEADER = [...COMMON_HEADER, ...METHOD1_ITEMS.map((i) => i.name), ...TRAILING_HEADER];
@@ -172,6 +173,7 @@ function commonFields(payload: SubmitPayload, locationName = ""): Record<string,
     "Start Time": payload.startTime ?? "",
     "End Time": payload.endTime ?? "",
     "Time Taken (seconds)": payload.timeTakenSeconds === null ? "" : String(payload.timeTakenSeconds),
+    "Paused Duration (seconds)": String(payload.pausedSeconds),
   };
   for (const [name, score] of Object.entries(payload.criticalItems)) {
     fields[criticalColumn(name)] = score === null ? "" : String(Math.round(score));
