@@ -90,7 +90,37 @@ type Action =
   | { type: "RESUME_TIMER" }
   | { type: "RESET" };
 
+function resumeNow(state: SurveyState): SurveyState {
+  if (!state.pausedAt) return state;
+  const openPauseSeconds = (Date.now() - new Date(state.pausedAt).getTime()) / 1000;
+  return { ...state, pausedAt: null, pausedSeconds: state.pausedSeconds + openPauseSeconds };
+}
+
+// Actions that don't count as "doing the assessment" — picking a school or
+// method, discarding/resetting everything, and the pause/resume actions
+// themselves (which manage pausedAt directly and would otherwise conflict
+// with the auto-resume below).
+const TIMER_EXEMPT_ACTIONS = new Set<Action["type"]>([
+  "SET_SCHOOL",
+  "SET_METHOD",
+  "SET_LAST_SURVEY_ID",
+  "DISCARD_METHOD_PROGRESS",
+  "PAUSE_TIMER",
+  "RESUME_TIMER",
+  "RESET",
+]);
+
 function reducer(state: SurveyState, action: Action): SurveyState {
+  // Auto-resume on any real interaction while paused — picking a condition,
+  // typing a note, choosing a floor/location/work category, editing
+  // respondent details, etc. — so a forgotten "Resume" tap doesn't quietly
+  // keep excluding real working time from the tally. The explicit
+  // Pause/Resume button still exists for someone who wants to resume
+  // without doing anything else yet.
+  if (state.pausedAt && !TIMER_EXEMPT_ACTIONS.has(action.type)) {
+    state = resumeNow(state);
+  }
+
   switch (action.type) {
     case "SET_SCHOOL":
       return { ...state, school: action.school };
@@ -234,11 +264,8 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       // accrued in the open span) on a duplicate click.
       if (!state.startTime || state.pausedAt) return state;
       return { ...state, pausedAt: new Date().toISOString() };
-    case "RESUME_TIMER": {
-      if (!state.pausedAt) return state;
-      const openPauseSeconds = (Date.now() - new Date(state.pausedAt).getTime()) / 1000;
-      return { ...state, pausedAt: null, pausedSeconds: state.pausedSeconds + openPauseSeconds };
-    }
+    case "RESUME_TIMER":
+      return resumeNow(state);
     case "DISCARD_METHOD_PROGRESS":
       // Confirmed navigation back to method selection: clear every response
       // entered in this session and the timer — but not school/respondent

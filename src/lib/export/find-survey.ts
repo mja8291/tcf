@@ -24,6 +24,11 @@ export interface FoundSurvey {
   safety: number | null;
   aesthetics: number | null;
   ratingBandLabel: string;
+  /** ISO timestamp set when the method was chosen, or "" if never recorded (older rows predate this column). */
+  startTime: string;
+  /** ISO timestamp of submission — falls back to submittedAt (the sheet's own Timestamp column) if the dedicated End Time column is blank. */
+  endTime: string;
+  timeTakenSeconds: number | null;
   /** Item name -> condition string (Method 1) or "" (Method 2, use aggregatedScores instead). */
   conditions: Record<string, string>;
   /** Method 2 only — campus-level aggregated score (0-100) per item group. */
@@ -61,6 +66,9 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
       safety: num(m1Row["Safety Score"]),
       aesthetics: num(m1Row["Aesthetics Score"]),
       ratingBandLabel: m1Row["Rating Band"] || ratingBand(overall) || "",
+      startTime: m1Row["Start Time"] ?? "",
+      endTime: m1Row["End Time"] || m1Row["Timestamp"] || "",
+      timeTakenSeconds: num(m1Row["Time Taken (seconds)"]),
       conditions,
       items: METHOD1_ITEMS,
     };
@@ -105,6 +113,9 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
     safety: num(first["Safety Score"]),
     aesthetics: num(first["Aesthetics Score"]),
     ratingBandLabel: first["Rating Band"] || ratingBand(overall) || "",
+    startTime: first["Start Time"] ?? "",
+    endTime: first["End Time"] || first["Timestamp"] || "",
+    timeTakenSeconds: num(first["Time Taken (seconds)"]),
     conditions: {},
     aggregatedScores: aggregateMethod2(locations),
     items: METHOD2_GROUPS,

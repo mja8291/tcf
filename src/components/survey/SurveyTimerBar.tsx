@@ -4,21 +4,13 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Pause, Play } from "lucide-react";
 import { useSurvey } from "@/lib/survey-context";
+import { formatDuration } from "@/lib/format-duration";
 
 function computeElapsed(startTime: string, pausedAt: string | null, pausedSeconds: number): number {
   const startMs = new Date(startTime).getTime();
   const nowMs = Date.now();
   const openPauseMs = pausedAt ? nowMs - new Date(pausedAt).getTime() : 0;
   return Math.max(0, Math.round((nowMs - startMs - pausedSeconds * 1000 - openPauseMs) / 1000));
-}
-
-export function formatDuration(totalSeconds: number): string {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = Math.floor(totalSeconds % 60);
-  const mm = String(m).padStart(2, "0");
-  const ss = String(s).padStart(2, "0");
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
 /**

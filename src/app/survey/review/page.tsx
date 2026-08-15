@@ -16,7 +16,7 @@ import { OATH_TEXT, POWER_SUPPLY_OPTIONS } from "@/lib/data/content";
 import type { PowerSupply } from "@/lib/types";
 import { buildSubmission, formDataFromSubmission } from "@/lib/submit";
 import { queueSubmission } from "@/lib/offline/db";
-import { formatDuration } from "@/components/survey/SurveyTimerBar";
+import { formatDuration } from "@/lib/format-duration";
 
 export default function ReviewPage() {
   const router = useRouter();

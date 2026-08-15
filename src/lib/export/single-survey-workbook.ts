@@ -1,6 +1,7 @@
 import "server-only";
 import ExcelJS from "exceljs";
 import { CATEGORY_WEIGHT } from "@/lib/scoring";
+import { formatDurationFriendly } from "@/lib/format-duration";
 import type { Category, RubricItem } from "@/lib/types";
 
 export interface SingleSurveyExportInput {
@@ -8,6 +9,10 @@ export interface SingleSurveyExportInput {
   campusName: string;
   method: 1 | 2;
   submittedAt: string;
+  /** "" if this survey predates the Start/End Time columns. */
+  startTime: string;
+  endTime: string;
+  timeTakenSeconds: number | null;
   /** Item name -> condition text ("Good"/"Ok"/"Poor"/"Very Poor"), omitted/blank means N/A / unscored. */
   conditions: Record<string, string>;
   /**
@@ -65,6 +70,13 @@ export function buildSingleSurveyWorkbook(input: SingleSurveyExportInput): Excel
   sheet.getCell("P3").value = input.method;
   sheet.getCell("O4").value = "Submitted";
   sheet.getCell("P4").value = input.submittedAt;
+  sheet.getCell("O5").value = "Start Time";
+  sheet.getCell("P5").value = input.startTime ? new Date(input.startTime).toLocaleString() : "—";
+  sheet.getCell("O6").value = "Finish Time";
+  sheet.getCell("P6").value = input.endTime ? new Date(input.endTime).toLocaleString() : "—";
+  sheet.getCell("O7").value = "Time Taken";
+  sheet.getCell("P7").value =
+    input.timeTakenSeconds === null ? "—" : formatDurationFriendly(input.timeTakenSeconds);
 
   const firstDataRow = 2;
   let r = firstDataRow;

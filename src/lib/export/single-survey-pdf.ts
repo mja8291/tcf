@@ -1,6 +1,7 @@
 import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { CATEGORY_WEIGHT } from "@/lib/scoring";
+import { formatDurationFriendly } from "@/lib/format-duration";
 import type { Category, RubricItem } from "@/lib/types";
 
 export interface SingleSurveyPdfInput {
@@ -10,6 +11,10 @@ export interface SingleSurveyPdfInput {
   area: string;
   method: 1 | 2;
   submittedAt: string;
+  /** "" if this survey predates the Start/End Time columns. */
+  startTime: string;
+  endTime: string;
+  timeTakenSeconds: number | null;
   apm: string;
   asm: string;
   principal: string;
@@ -79,6 +84,9 @@ export async function buildSingleSurveyPdf(input: SingleSurveyPdfInput): Promise
     ["Responding ASM", input.asm || "—"],
     ["School Principal", input.principal || "—"],
     ["Power Supply", input.powerSupply || "—"],
+    ["Start Time", input.startTime ? new Date(input.startTime).toLocaleString() : "—"],
+    ["Finish Time", input.endTime ? new Date(input.endTime).toLocaleString() : "—"],
+    ["Time Taken", input.timeTakenSeconds === null ? "—" : formatDurationFriendly(input.timeTakenSeconds)],
   ];
   for (const [k, v] of rows) {
     text(k, MARGIN, 9, font, INK_SOFT);
