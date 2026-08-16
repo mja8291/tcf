@@ -1,21 +1,23 @@
 "use client";
 
-import { Camera, Info, StickyNote } from "lucide-react";
+import { Info, StickyNote } from "lucide-react";
 import { useState } from "react";
 import type { Condition, RubricItem } from "@/lib/types";
-import { compressImage } from "@/lib/image/compress";
 import { ConditionPills } from "./ConditionPills";
 import { IconButton } from "./IconButton";
 import { ConditionInfoPanel } from "./ConditionInfoPanel";
+import { PhotoAttachButton, PhotoThumbList, usePhotoAttachHandler } from "./PhotoAttach";
 
 interface ItemRowProps {
   item: RubricItem;
   worstCase?: boolean;
   value: Condition | undefined;
-  photo: File | undefined;
+  /** Multiple photos per item are allowed — this is the item's full list, not just the latest one. */
+  photos: File[];
   note: string | undefined;
   onScoreChange: (value: Condition) => void;
-  onPhotoChange: (file: File | undefined) => void;
+  onAddPhoto: (file: File) => void;
+  onRemovePhoto: (index: number) => void;
   onNoteChange: (value: string) => void;
   /** Set after a blocked save/return attempt, for items still unscored — shows a red asterisk so the user can see exactly what's left. */
   pending?: boolean;
@@ -25,30 +27,17 @@ export function ItemRow({
   item,
   worstCase,
   value,
-  photo,
+  photos,
   note,
   onScoreChange,
-  onPhotoChange,
+  onAddPhoto,
+  onRemovePhoto,
   onNoteChange,
   pending,
 }: ItemRowProps) {
   const [infoOpen, setInfoOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(Boolean(note));
-  const [compressing, setCompressing] = useState(false);
-  const inputId = `photo_${item.name.replace(/[^a-zA-Z0-9]/g, "_")}`;
-
-  async function handlePhotoPick(file: File | undefined) {
-    if (!file) {
-      onPhotoChange(undefined);
-      return;
-    }
-    setCompressing(true);
-    try {
-      onPhotoChange(await compressImage(file));
-    } finally {
-      setCompressing(false);
-    }
-  }
+  const { compressing, handlePick } = usePhotoAttachHandler(onAddPhoto);
 
   return (
     <div className="py-2.5 border-b border-border">
@@ -75,35 +64,15 @@ export function ItemRow({
           <IconButton active={infoOpen} aria-label="Rating guidance" onClick={() => setInfoOpen((v) => !v)}>
             <Info size={16} />
           </IconButton>
-          <IconButton
-            active={Boolean(photo)}
-            aria-label="Attach photo"
-            onClick={() => document.getElementById(inputId)?.click()}
-            disabled={compressing}
-          >
-            <Camera size={16} />
-          </IconButton>
+          <PhotoAttachButton itemKey={item.name} photoCount={photos.length} compressing={compressing} onPick={handlePick} />
           <IconButton active={noteOpen} aria-label="Add note" onClick={() => setNoteOpen((v) => !v)}>
             <StickyNote size={16} />
           </IconButton>
-          <input
-            id={inputId}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => handlePhotoPick(e.target.files?.[0])}
-          />
         </div>
       </div>
       <ConditionPills value={value} onChange={onScoreChange} options={item.conditionOverride} />
-      {compressing ? (
-        <div className="text-[11px] text-ink-faint mt-1">Compressing photo…</div>
-      ) : photo ? (
-        <div className="text-[11px] text-ink-faint mt-1">
-          Attached: {photo.name} ({(photo.size / 1024).toFixed(0)} KB)
-        </div>
-      ) : null}
+      {compressing ? <div className="text-[11px] text-ink-faint mt-1">Compressing photo…</div> : null}
+      <PhotoThumbList photos={photos} onRemovePhoto={onRemovePhoto} />
       {noteOpen ? (
         <input
           type="text"

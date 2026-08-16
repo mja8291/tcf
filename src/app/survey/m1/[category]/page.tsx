@@ -14,7 +14,7 @@ import type { Category } from "@/lib/types";
 
 export default function Method1CategoryScorePage({ params }: { params: Promise<{ category: string }> }) {
   const router = useRouter();
-  const { state, m1SetScore, m1SetPhoto, m1SetNote } = useSurvey();
+  const { state, m1SetScore, m1AddPhoto, m1RemovePhoto, m1SetNote } = useSurvey();
   const { category: categoryParam } = use(params);
   const category = CATEGORIES.includes(categoryParam as Category) ? (categoryParam as Category) : null;
   const [attemptedSave, setAttemptedSave] = useState(false);
@@ -47,10 +47,11 @@ export default function Method1CategoryScorePage({ params }: { params: Promise<{
           key={item.name}
           item={item}
           value={state.m1.scores[item.name]}
-          photo={state.m1.photos[item.name]}
+          photos={state.m1.photos[item.name] ?? []}
           note={state.m1.notes[item.name]}
           onScoreChange={(v) => m1SetScore(item.name, v)}
-          onPhotoChange={(f) => m1SetPhoto(item.name, f)}
+          onAddPhoto={(f) => m1AddPhoto(item.name, f)}
+          onRemovePhoto={(i) => m1RemovePhoto(item.name, i)}
           onNoteChange={(v) => m1SetNote(item.name, v)}
           pending={attemptedSave && !state.m1.scores[item.name]}
         />

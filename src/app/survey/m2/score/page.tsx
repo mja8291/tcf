@@ -12,7 +12,7 @@ import { method2GroupsForLocationAndCategory } from "@/lib/data/method2-items";
 
 export default function Method2ScorePage() {
   const router = useRouter();
-  const { state, m2CurrentSetScore, m2CurrentSetPhoto, m2CurrentSetNote } = useSurvey();
+  const { state, m2CurrentSetScore, m2CurrentAddPhoto, m2CurrentRemovePhoto, m2CurrentSetNote } = useSurvey();
   const current = state.m2.current;
   const [attemptedSave, setAttemptedSave] = useState(false);
 
@@ -41,10 +41,11 @@ export default function Method2ScorePage() {
           item={item}
           worstCase={item.aggregation === "worst"}
           value={current.scores[item.name]}
-          photo={current.photos[item.name]}
+          photos={current.photos[item.name] ?? []}
           note={current.notes[item.name]}
           onScoreChange={(v) => m2CurrentSetScore(item.name, v)}
-          onPhotoChange={(f) => m2CurrentSetPhoto(item.name, f)}
+          onAddPhoto={(f) => m2CurrentAddPhoto(item.name, f)}
+          onRemovePhoto={(i) => m2CurrentRemovePhoto(item.name, i)}
           onNoteChange={(v) => m2CurrentSetNote(item.name, v)}
           pending={attemptedSave && !current.scores[item.name]}
         />

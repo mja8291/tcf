@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Pause, Play } from "lucide-react";
 import { useSurvey } from "@/lib/survey-context";
-import { formatDuration } from "@/lib/format-duration";
+import { formatElapsedMinutes } from "@/lib/format-duration";
 
 function computeElapsed(startTime: string, pausedAt: string | null, pausedSeconds: number): number {
   const startMs = new Date(startTime).getTime();
@@ -29,9 +29,14 @@ export function SurveyTimerBar() {
   // setState can't be called synchronously in an effect body
   // (react-hooks/set-state-in-effect) — so every read of it happens inside
   // this interval's callback instead. The very first tick lands up to a
-  // second after mount/pause/resume; until then this shows the last value
+  // minute after mount/pause/resume; until then this shows the last value
   // computed, which needs no correction at mount (elapsed is ~0 the instant
-  // a method is chosen) and is at worst a second stale right after a resume.
+  // a method is chosen) and is at worst a minute stale right after a resume.
+  //
+  // Deliberately once-per-minute, not once-per-second re-labeled as
+  // "min" — the whole point (Task 6 addendum) is cutting the visual churn
+  // of a digit changing every second, so the interval itself has to be
+  // coarse, not just the formatting.
   const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
@@ -39,7 +44,7 @@ export function SurveyTimerBar() {
     const startTime = state.startTime;
     const pausedAt = state.pausedAt;
     const pausedSeconds = state.pausedSeconds;
-    const id = setInterval(() => setSeconds(computeElapsed(startTime, pausedAt, pausedSeconds)), 1000);
+    const id = setInterval(() => setSeconds(computeElapsed(startTime, pausedAt, pausedSeconds)), 60000);
     return () => clearInterval(id);
   }, [state.startTime, state.pausedAt, state.pausedSeconds, paused]);
 
@@ -56,7 +61,7 @@ export function SurveyTimerBar() {
           {paused ? "Paused" : "Time on assessment"}
           {" · "}
           <span className={`font-display font-semibold ${paused ? "text-band-average" : "text-ink"}`}>
-            {formatDuration(seconds)}
+            {formatElapsedMinutes(seconds)}
           </span>
         </span>
         <button

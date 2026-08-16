@@ -12,7 +12,8 @@ interface M2Current {
   classroomSection?: string;
   activeWorkCategory: WorkCategory | null;
   scores: Record<string, Condition>;
-  photos: Record<string, File>;
+  /** Multiple photos per item are allowed. */
+  photos: Record<string, File[]>;
   notes: Record<string, string>;
 }
 
@@ -26,7 +27,8 @@ interface SurveyState {
   complaints: string;
   m1: {
     scores: Record<string, Condition>;
-    photos: Record<string, File>;
+    /** Multiple photos per item are allowed. */
+    photos: Record<string, File[]>;
     notes: Record<string, string>;
   };
   m2: {
@@ -73,7 +75,8 @@ type Action =
   | { type: "SET_COMPLAINTS"; value: string }
   | { type: "SET_LAST_SURVEY_ID"; surveyId: string | null }
   | { type: "M1_SET_SCORE"; name: string; value: Condition }
-  | { type: "M1_SET_PHOTO"; name: string; file: File | undefined }
+  | { type: "M1_ADD_PHOTO"; name: string; file: File }
+  | { type: "M1_REMOVE_PHOTO"; name: string; index: number }
   | { type: "M1_SET_NOTE"; name: string; value: string }
   | { type: "M2_SET_FLOOR"; floorLevel: FloorLevel; autoName?: string }
   | { type: "M2_SET_LOCATION_TYPE"; floorLevel: FloorLevel; locationType: LocationType; autoName?: string }
@@ -81,7 +84,8 @@ type Action =
   | { type: "M2_SET_CLASSROOM"; floorLevel: FloorLevel; grade: string; section: string }
   | { type: "M2_OPEN_CATEGORY"; workCategory: WorkCategory }
   | { type: "M2_CURRENT_SET_SCORE"; name: string; value: Condition }
-  | { type: "M2_CURRENT_SET_PHOTO"; name: string; file: File | undefined }
+  | { type: "M2_CURRENT_ADD_PHOTO"; name: string; file: File }
+  | { type: "M2_CURRENT_REMOVE_PHOTO"; name: string; index: number }
   | { type: "M2_CURRENT_SET_NOTE"; name: string; value: string }
   | { type: "M2_FINALIZE_CURRENT" }
   | { type: "M2_RESUME_LOCATION"; id: string }
@@ -144,10 +148,14 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       return { ...state, lastSurveyId: action.surveyId };
     case "M1_SET_SCORE":
       return { ...state, m1: { ...state.m1, scores: { ...state.m1.scores, [action.name]: action.value } } };
-    case "M1_SET_PHOTO": {
-      const photos = { ...state.m1.photos };
-      if (action.file) photos[action.name] = action.file;
-      else delete photos[action.name];
+    case "M1_ADD_PHOTO": {
+      const existing = state.m1.photos[action.name] ?? [];
+      const photos = { ...state.m1.photos, [action.name]: [...existing, action.file] };
+      return { ...state, m1: { ...state.m1, photos } };
+    }
+    case "M1_REMOVE_PHOTO": {
+      const existing = state.m1.photos[action.name] ?? [];
+      const photos = { ...state.m1.photos, [action.name]: existing.filter((_, i) => i !== action.index) };
       return { ...state, m1: { ...state.m1, photos } };
     }
     case "M1_SET_NOTE":
@@ -198,11 +206,16 @@ function reducer(state: SurveyState, action: Action): SurveyState {
             },
           }
         : state;
-    case "M2_CURRENT_SET_PHOTO": {
+    case "M2_CURRENT_ADD_PHOTO": {
       if (!state.m2.current) return state;
-      const photos = { ...state.m2.current.photos };
-      if (action.file) photos[action.name] = action.file;
-      else delete photos[action.name];
+      const existing = state.m2.current.photos[action.name] ?? [];
+      const photos = { ...state.m2.current.photos, [action.name]: [...existing, action.file] };
+      return { ...state, m2: { ...state.m2, current: { ...state.m2.current, photos } } };
+    }
+    case "M2_CURRENT_REMOVE_PHOTO": {
+      if (!state.m2.current) return state;
+      const existing = state.m2.current.photos[action.name] ?? [];
+      const photos = { ...state.m2.current.photos, [action.name]: existing.filter((_, i) => i !== action.index) };
       return { ...state, m2: { ...state.m2, current: { ...state.m2.current, photos } } };
     }
     case "M2_CURRENT_SET_NOTE":
@@ -300,7 +313,8 @@ interface SurveyContextValue {
   setComplaints: (value: string) => void;
   setLastSurveyId: (surveyId: string | null) => void;
   m1SetScore: (name: string, value: Condition) => void;
-  m1SetPhoto: (name: string, file: File | undefined) => void;
+  m1AddPhoto: (name: string, file: File) => void;
+  m1RemovePhoto: (name: string, index: number) => void;
   m1SetNote: (name: string, value: string) => void;
   m2SetFloor: (floorLevel: FloorLevel, autoName?: string) => void;
   m2SetLocationType: (floorLevel: FloorLevel, locationType: LocationType, autoName?: string) => void;
@@ -308,7 +322,8 @@ interface SurveyContextValue {
   m2SetClassroom: (floorLevel: FloorLevel, grade: string, section: string) => void;
   m2OpenCategory: (workCategory: WorkCategory) => void;
   m2CurrentSetScore: (name: string, value: Condition) => void;
-  m2CurrentSetPhoto: (name: string, file: File | undefined) => void;
+  m2CurrentAddPhoto: (name: string, file: File) => void;
+  m2CurrentRemovePhoto: (name: string, index: number) => void;
   m2CurrentSetNote: (name: string, value: string) => void;
   m2FinalizeCurrent: () => void;
   m2ResumeLocation: (id: string) => void;
@@ -333,7 +348,8 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       setComplaints: (value) => dispatch({ type: "SET_COMPLAINTS", value }),
       setLastSurveyId: (surveyId) => dispatch({ type: "SET_LAST_SURVEY_ID", surveyId }),
       m1SetScore: (name, value) => dispatch({ type: "M1_SET_SCORE", name, value }),
-      m1SetPhoto: (name, file) => dispatch({ type: "M1_SET_PHOTO", name, file }),
+      m1AddPhoto: (name, file) => dispatch({ type: "M1_ADD_PHOTO", name, file }),
+      m1RemovePhoto: (name, index) => dispatch({ type: "M1_REMOVE_PHOTO", name, index }),
       m1SetNote: (name, value) => dispatch({ type: "M1_SET_NOTE", name, value }),
       m2SetFloor: (floorLevel, autoName) => dispatch({ type: "M2_SET_FLOOR", floorLevel, autoName }),
       m2SetLocationType: (floorLevel, locationType, autoName) =>
@@ -342,7 +358,8 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       m2SetClassroom: (floorLevel, grade, section) => dispatch({ type: "M2_SET_CLASSROOM", floorLevel, grade, section }),
       m2OpenCategory: (workCategory) => dispatch({ type: "M2_OPEN_CATEGORY", workCategory }),
       m2CurrentSetScore: (name, value) => dispatch({ type: "M2_CURRENT_SET_SCORE", name, value }),
-      m2CurrentSetPhoto: (name, file) => dispatch({ type: "M2_CURRENT_SET_PHOTO", name, file }),
+      m2CurrentAddPhoto: (name, file) => dispatch({ type: "M2_CURRENT_ADD_PHOTO", name, file }),
+      m2CurrentRemovePhoto: (name, index) => dispatch({ type: "M2_CURRENT_REMOVE_PHOTO", name, index }),
       m2CurrentSetNote: (name, value) => dispatch({ type: "M2_CURRENT_SET_NOTE", name, value }),
       m2FinalizeCurrent: () => dispatch({ type: "M2_FINALIZE_CURRENT" }),
       m2ResumeLocation: (id) => dispatch({ type: "M2_RESUME_LOCATION", id }),

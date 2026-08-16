@@ -9,7 +9,7 @@ interface SubmitLocation {
   classroomGrade?: string;
   classroomSection?: string;
   scores: Record<string, Condition>;
-  photos: Record<string, File>;
+  photos: Record<string, File[]>;
   notes: Record<string, string>;
 }
 
@@ -21,7 +21,7 @@ interface SubmitState {
   principal: string;
   powerSupply: PowerSupply;
   complaints: string;
-  m1: { scores: Record<string, Condition>; photos: Record<string, File>; notes: Record<string, string> };
+  m1: { scores: Record<string, Condition>; photos: Record<string, File[]>; notes: Record<string, string> };
   m2: { locations: SubmitLocation[] };
   /** ISO timestamp set when the method was chosen — see survey-context.tsx SET_METHOD. */
   startTime: string | null;
@@ -109,20 +109,24 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
     : null;
 
   if (state.method === 1) {
-    for (const [itemName, file] of Object.entries(state.m1.photos)) {
-      const key = itemName;
-      photoKeys.push({ attachmentKey: key, itemName, locationName: "" });
-      files.push({ attachmentKey: key, file });
+    for (const [itemName, itemFiles] of Object.entries(state.m1.photos)) {
+      itemFiles.forEach((file, i) => {
+        const key = `${itemName}::${i}`;
+        photoKeys.push({ attachmentKey: key, itemName, locationName: "" });
+        files.push({ attachmentKey: key, file });
+      });
     }
     for (const [itemName, note] of Object.entries(state.m1.notes)) {
       if (note?.trim()) notes.push({ attachmentKey: itemName, itemName, locationName: "", note });
     }
   } else {
     for (const loc of state.m2.locations) {
-      for (const [itemName, file] of Object.entries(loc.photos)) {
-        const key = `${loc.id}::${itemName}`;
-        photoKeys.push({ attachmentKey: key, itemName, locationName: loc.name });
-        files.push({ attachmentKey: key, file });
+      for (const [itemName, itemFiles] of Object.entries(loc.photos)) {
+        itemFiles.forEach((file, i) => {
+          const key = `${loc.id}::${itemName}::${i}`;
+          photoKeys.push({ attachmentKey: key, itemName, locationName: loc.name });
+          files.push({ attachmentKey: key, file });
+        });
       }
       for (const [itemName, note] of Object.entries(loc.notes)) {
         if (note?.trim()) notes.push({ attachmentKey: `${loc.id}::${itemName}`, itemName, locationName: loc.name, note });

@@ -26,7 +26,7 @@ export default function MethodChoicePage() {
     if (!respondentComplete) return;
     setRespondent(asm, apm, principal);
     setMethod(method);
-    router.push(method === 1 ? "/survey/m1" : "/survey/m2");
+    router.push(method === 1 ? "/survey/m1/campus-visit" : "/survey/m2");
   }
 
   if (!state.school) return null;

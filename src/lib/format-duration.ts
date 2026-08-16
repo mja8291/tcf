@@ -11,6 +11,16 @@ export function formatDuration(totalSeconds: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
+/** Coarse "N min" phrasing for the live timer bar (Task 6 addendum) — the
+ * display is meant to change once per minute, not once per second, so this
+ * deliberately drops second-level precision rather than just relabeling a
+ * seconds value. Sheet/export data keeps full second-level precision — see
+ * formatDuration/formatDurationFriendly, unaffected by this. */
+export function formatElapsedMinutes(totalSeconds: number): string {
+  const minutes = Math.floor(Math.max(0, totalSeconds) / 60);
+  return `${minutes} min`;
+}
+
 /** Human-readable duration for reports/exports: "1h 54m", "34m 12s", "45s". */
 export function formatDurationFriendly(totalSeconds: number): string {
   const total = Math.max(0, Math.round(totalSeconds));

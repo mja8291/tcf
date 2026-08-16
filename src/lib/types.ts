@@ -78,8 +78,8 @@ export interface Method2Location {
   classroomGrade?: string;
   classroomSection?: string;
   scores: Record<string, Condition>;
-  /** Actual File objects, kept client-side until submission uploads them to Drive. */
-  photos: Record<string, File>;
+  /** Actual File objects, kept client-side until submission uploads them to Drive. Multiple photos per item are allowed. */
+  photos: Record<string, File[]>;
   notes: Record<string, string>;
 }
 
