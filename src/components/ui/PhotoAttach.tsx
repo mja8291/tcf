@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Camera, X } from "lucide-react";
+import { Camera, Image as ImageIcon, X } from "lucide-react";
 import { compressImage } from "@/lib/image/compress";
 import { IconButton } from "./IconButton";
 
@@ -32,34 +32,52 @@ export function usePhotoAttachHandler(onAddPhoto: (file: File) => void) {
   return { compressing, handlePick };
 }
 
-interface PhotoAttachButtonProps {
-  /** Used to build a unique <input id> — pass the item name. */
+interface PhotoAttachButtonsProps {
+  /** Used to build unique <input id>s — pass the item name. */
   itemKey: string;
   photoCount: number;
   compressing: boolean;
   onPick: (file: File | undefined) => void;
 }
 
-export function PhotoAttachButton({ itemKey, photoCount, compressing, onPick }: PhotoAttachButtonProps) {
-  const inputId = `photo_${itemKey.replace(/[^a-zA-Z0-9]/g, "_")}`;
+/**
+ * Two explicit controls — "Take photo" (forces the camera via the `capture`
+ * attribute) and "Choose from gallery" (a plain picker, no `capture`) —
+ * rather than one button relying on the phone's native combined chooser.
+ * Round 3 Task 14: confirmed with the user that explicit separate buttons
+ * are preferred over removing `capture` and relying on the OS picker.
+ */
+export function PhotoAttachButtons({ itemKey, photoCount, compressing, onPick }: PhotoAttachButtonsProps) {
+  const cameraId = `photo_camera_${itemKey.replace(/[^a-zA-Z0-9]/g, "_")}`;
+  const galleryId = `photo_gallery_${itemKey.replace(/[^a-zA-Z0-9]/g, "_")}`;
   return (
-    <>
+    <div className="relative flex items-center gap-1.5 shrink-0">
       <IconButton
         active={photoCount > 0}
-        aria-label={photoCount > 0 ? `Add another photo (${photoCount} attached)` : "Attach photo"}
-        onClick={() => document.getElementById(inputId)?.click()}
+        aria-label="Take photo"
+        onClick={() => document.getElementById(cameraId)?.click()}
         disabled={compressing}
-        className="relative"
       >
         <Camera size={16} />
-        {photoCount > 0 ? (
-          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[9px] font-bold text-white">
-            {photoCount}
-          </span>
-        ) : null}
       </IconButton>
+      <IconButton
+        active={photoCount > 0}
+        aria-label="Choose from gallery"
+        onClick={() => document.getElementById(galleryId)?.click()}
+        disabled={compressing}
+      >
+        <ImageIcon size={16} />
+      </IconButton>
+      {photoCount > 0 ? (
+        <span
+          className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[9px] font-bold text-white"
+          aria-label={`${photoCount} photo${photoCount === 1 ? "" : "s"} attached`}
+        >
+          {photoCount}
+        </span>
+      ) : null}
       <input
-        id={inputId}
+        id={cameraId}
         type="file"
         accept="image/*"
         capture="environment"
@@ -72,7 +90,18 @@ export function PhotoAttachButton({ itemKey, photoCount, compressing, onPick }: 
           onPick(file);
         }}
       />
-    </>
+      <input
+        id={galleryId}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          onPick(file);
+        }}
+      />
+    </div>
   );
 }
 

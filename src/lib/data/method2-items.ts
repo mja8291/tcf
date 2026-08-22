@@ -439,7 +439,12 @@ export const LOCATION_NAME_OPTIONS: Partial<Record<LocationType, string[]>> = {
   ],
 };
 
-export const CLASSROOM_GRADES = ["KG", ...Array.from({ length: 12 }, (_, i) => `Class ${i + 1}`)];
+// Round 3 Task 12: Classroom naming isn't free text or a flat "Classroom 1,
+// Classroom 2..." list — it's this Grade x Section combinator (see
+// M2_SET_CLASSROOM in survey-context.tsx, name = `${grade} ${section}`).
+// Nursery slots in as an additional grade, pairing with a section like
+// every other grade, rather than as a one-off special case.
+export const CLASSROOM_GRADES = ["Nursery", "KG", ...Array.from({ length: 12 }, (_, i) => `Class ${i + 1}`)];
 /** Campuses use either lettered or coloured sections — offer both, ASM picks whichever applies. */
 export const CLASSROOM_SECTIONS = ["A", "B", "C", "D", "E", "Red", "Yellow", "Green", "Blue"];
 

@@ -6,7 +6,7 @@ import type { Condition, RubricItem } from "@/lib/types";
 import { ConditionPills } from "./ConditionPills";
 import { IconButton } from "./IconButton";
 import { ConditionInfoPanel } from "./ConditionInfoPanel";
-import { PhotoAttachButton, PhotoThumbList, usePhotoAttachHandler } from "./PhotoAttach";
+import { PhotoAttachButtons, PhotoThumbList, usePhotoAttachHandler } from "./PhotoAttach";
 
 interface ItemRowProps {
   item: RubricItem;
@@ -64,7 +64,7 @@ export function ItemRow({
           <IconButton active={infoOpen} aria-label="Rating guidance" onClick={() => setInfoOpen((v) => !v)}>
             <Info size={16} />
           </IconButton>
-          <PhotoAttachButton itemKey={item.name} photoCount={photos.length} compressing={compressing} onPick={handlePick} />
+          <PhotoAttachButtons itemKey={item.name} photoCount={photos.length} compressing={compressing} onPick={handlePick} />
           <IconButton active={noteOpen} aria-label="Add note" onClick={() => setNoteOpen((v) => !v)}>
             <StickyNote size={16} />
           </IconButton>

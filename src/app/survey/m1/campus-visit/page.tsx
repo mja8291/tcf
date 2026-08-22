@@ -7,7 +7,7 @@ import { TopBar } from "@/components/ui/TopBar";
 import { Button } from "@/components/ui/Button";
 import { BottomBar } from "@/components/ui/BottomBar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { PhotoAttachButton, PhotoThumbList, usePhotoAttachHandler } from "@/components/ui/PhotoAttach";
+import { PhotoAttachButtons, PhotoThumbList, usePhotoAttachHandler } from "@/components/ui/PhotoAttach";
 import { CampusVisitInstructions } from "@/components/survey/CampusVisitInstructions";
 import { useSurvey } from "@/lib/survey-context";
 import { METHOD1_ITEMS } from "@/lib/data/method1-items";
@@ -152,7 +152,7 @@ function CampusVisitPhotoRow({
         {compressing ? <div className="text-[10.5px] text-ink-faint mt-0.5">Compressing photo…</div> : null}
         <PhotoThumbList photos={photos} onRemovePhoto={onRemove} />
       </div>
-      <PhotoAttachButton itemKey={itemName} photoCount={photos.length} compressing={compressing} onPick={handlePick} />
+      <PhotoAttachButtons itemKey={itemName} photoCount={photos.length} compressing={compressing} onPick={handlePick} />
     </div>
   );
 }
