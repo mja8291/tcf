@@ -1,22 +1,27 @@
 import type { RubricItem } from "@/lib/types";
 
 /**
- * Method 1 — 44 items, flat, one score per campus.
- * 21-item Functionality version (includes "Cabinet *") per 01-data-and-scoring.md —
- * confirmed with TCF: Cabinet was a recent rubric addition; the printed PDF guide
- * and live Google Form still show the older 20-item version and haven't been
- * updated yet. Both illustrative workbooks use this 21-item version.
- * Safety is 14 items (added "Parapet Wall", 2026-08-12 — see rubric audit).
+ * Method 1 — 45 items, flat, one score per campus. Re-synced 2026-08-22
+ * (Round 3 Task 10) against the live "MQI Assessment Rubrics (Method 1)"
+ * sheet — every count/name/weight below is a direct fetch, not carried over
+ * from any earlier round of this brief (which had gone stale). Changes from
+ * the previous 44-item version:
+ *   - New 22nd Functionality item "Drinking Water Cooler & Filter *" (2%),
+ *     funded by Cabinet and Soft board each dropping 3% -> 2%.
+ *   - "W.Cs/Commodes *" lost its asterisk (no longer principal-maintained) —
+ *     matches what method2-items.ts already had; Method 1's copy was stale.
+ *   - "Toilet Flooring condition" renamed to "Toilet Tile condition".
+ * Safety is unchanged (still 14 items, same weights as the 2026-08-12 audit).
  */
 export const METHOD1_ITEMS: RubricItem[] = [
-  // Functionality — 45% of overall, 21 items
+  // Functionality — 45% of overall, 22 items
   { name: "Green board *", category: "Functionality", weight: 7, principalMaintained: true },
   { name: "Water Storage (Overhead Tank) *", category: "Functionality", weight: 7, principalMaintained: true },
   { name: "Water Supply line *", category: "Functionality", weight: 7, principalMaintained: true },
   { name: "Water Taps *", category: "Functionality", weight: 7, principalMaintained: true },
   { name: "Wash Basin *", category: "Functionality", weight: 7, principalMaintained: true },
   { name: "Flush Tanks *", category: "Functionality", weight: 5, principalMaintained: true },
-  { name: "W.Cs/Commodes *", category: "Functionality", weight: 7, principalMaintained: true },
+  { name: "W.Cs/Commodes", category: "Functionality", weight: 7 },
   { name: "Sewerage Line functionality *", category: "Functionality", weight: 7, principalMaintained: true },
   { name: "Energy & Power (Distribution Board) *", category: "Functionality", weight: 4, principalMaintained: true },
   { name: "Fans *", category: "Functionality", weight: 5, principalMaintained: true },
@@ -25,8 +30,9 @@ export const METHOD1_ITEMS: RubricItem[] = [
   { name: "Fan Dimmers *", category: "Functionality", weight: 5, principalMaintained: true },
   { name: "Motor (Water pump) *", category: "Functionality", weight: 4, principalMaintained: true },
   { name: "Windows & panes *", category: "Functionality", weight: 3, principalMaintained: true },
-  { name: "Cabinet *", category: "Functionality", weight: 3, principalMaintained: true },
-  { name: "Soft board *", category: "Functionality", weight: 3, principalMaintained: true },
+  { name: "Cabinet *", category: "Functionality", weight: 2, principalMaintained: true },
+  { name: "Soft board *", category: "Functionality", weight: 2, principalMaintained: true },
+  { name: "Drinking Water Cooler & Filter *", category: "Functionality", weight: 2, principalMaintained: true },
   { name: "LED/TV *", category: "Functionality", weight: 3, principalMaintained: true },
   { name: "UPS *", category: "Functionality", weight: 3, principalMaintained: true },
   { name: "Solar/UPS Batteries", category: "Functionality", weight: 3 },
@@ -67,7 +73,7 @@ export const METHOD1_ITEMS: RubricItem[] = [
   // Aesthetics — 30% of overall, 9 items
   { name: "Internal Paint", category: "Aesthetics", weight: 15 },
   { name: "External Fascade (Exterior Finish)", category: "Aesthetics", weight: 12 },
-  { name: "Toilet Flooring condition", category: "Aesthetics", weight: 12 },
+  { name: "Toilet Tile condition", category: "Aesthetics", weight: 12 },
   { name: "Furniture condition *", category: "Aesthetics", weight: 10, principalMaintained: true },
   { name: "Signage *", category: "Aesthetics", weight: 10, principalMaintained: true },
   { name: "Marble Plaque *", category: "Aesthetics", weight: 10, principalMaintained: true },

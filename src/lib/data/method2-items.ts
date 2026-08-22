@@ -1,7 +1,7 @@
 import type { Condition, FloorLevel, LocationType, Method2Group, WorkCategory } from "@/lib/types";
 
 /**
- * Method 2 v2 — 44 items across 6 work categories, per
+ * Method 2 v2 — 45 items across 6 work categories, per
  * 06-method2-v2-restructure.md (supersedes the old 23-item-group version).
  * Weights are each item's share of its scoring category (Functionality 45%
  * / Safety 25% / Aesthetics 30%) — the same weighting mechanics as Method 1,
@@ -9,6 +9,19 @@ import type { Condition, FloorLevel, LocationType, Method2Group, WorkCategory } 
  * has 14 items (not Method 1's 13 — adds "Parapet Wall") with different
  * weights on shared items (e.g. Doors 7% here vs 12% in Method 1); verified
  * independently that Functionality/Safety/Aesthetics each still sum to 100%.
+ *
+ * Re-synced 2026-08-22 (Round 3 Task 10) against the live "MQI Assessment
+ * Rubrics (Method 2)" sheet — the also-present "(Method 2B)" tab is an
+ * older/alternate draft (different item order, different weights, no
+ * Location/Item Category columns matching this app's shape) and is not the
+ * source of truth. Changes from the previous 44-item version:
+ *   - New Electrical Works item "Drinking Water Cooler & Filter *" (2%),
+ *     funded by Cabinet and Soft board each dropping 3% -> 2%.
+ *   - Motor (Water pump)'s locations changed from [External Development,
+ *     Other Room] to [Corridor & Stairs] only.
+ *   - CC Jaali's locations narrowed from [Toilet, Corridor, Facade, Other
+ *     Room] to [Corridor, Facade] only.
+ *   - "Toilet Flooring condition" renamed to "Toilet Tile condition".
  */
 function worst(item: Omit<Method2Group, "aggregation" | "category"> & { category: "Safety" }): Method2Group {
   return { ...item, aggregation: "worst" };
@@ -91,10 +104,10 @@ export const METHOD2_GROUPS: Method2Group[] = [
     weight: 4,
     principalMaintained: true,
     workCategory: "Plumbing Works",
-    locations: [EXT_DEV, OTHER_ROOM],
+    locations: [CORRIDOR],
   }),
 
-  // Electrical Works — 10 items, Functionality except Electrical Wiring/Connections (Safety)
+  // Electrical Works — 11 items, Functionality except Electrical Wiring/Connections (Safety)
   average({
     name: "Energy & Power (Distribution Board) *",
     category: "Functionality",
@@ -165,6 +178,14 @@ export const METHOD2_GROUPS: Method2Group[] = [
     workCategory: "Electrical Works",
     locations: [ROOF],
   }),
+  average({
+    name: "Drinking Water Cooler & Filter *",
+    category: "Functionality",
+    weight: 2,
+    principalMaintained: true,
+    workCategory: "Electrical Works",
+    locations: [CORRIDOR],
+  }),
   worst({
     name: "Electrical Wiring/Connections",
     category: "Safety",
@@ -185,7 +206,7 @@ export const METHOD2_GROUPS: Method2Group[] = [
   average({
     name: "Cabinet *",
     category: "Functionality",
-    weight: 3,
+    weight: 2,
     principalMaintained: true,
     workCategory: "Carpentry Works",
     locations: [CLASSROOM, OTHER_ROOM, LAB],
@@ -193,7 +214,7 @@ export const METHOD2_GROUPS: Method2Group[] = [
   average({
     name: "Soft board *",
     category: "Functionality",
-    weight: 3,
+    weight: 2,
     principalMaintained: true,
     workCategory: "Carpentry Works",
     locations: [CLASSROOM, OTHER_ROOM, LAB],
@@ -336,7 +357,7 @@ export const METHOD2_GROUPS: Method2Group[] = [
     locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
   }),
   average({
-    name: "Toilet Flooring condition",
+    name: "Toilet Tile condition",
     category: "Aesthetics",
     weight: 12,
     workCategory: "Building Civil Works",
@@ -377,7 +398,7 @@ export const METHOD2_GROUPS: Method2Group[] = [
     category: "Aesthetics",
     weight: 7,
     workCategory: "Building Civil Works",
-    locations: [TOILET, CORRIDOR, FACADE, OTHER_ROOM],
+    locations: [CORRIDOR, FACADE],
   }),
 ];
 
