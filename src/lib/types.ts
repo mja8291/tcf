@@ -69,6 +69,23 @@ export function emptyItemState(): ItemState {
   return { scores: {}, photos: {}, notes: {} };
 }
 
+/**
+ * One attached photo, tracked through its upload lifecycle (Round 3 Task 8
+ * — each photo uploads to Drive as soon as it's attached, not bundled into
+ * the final submit request, which is what blew past Vercel's 4.5MB request
+ * body limit once enough photos piled up). "uploading"/"error" are
+ * transient client-only states; only "uploaded" photos carry a url and get
+ * included in the submission payload.
+ */
+export interface PhotoAsset {
+  /** Client-generated — the target for status updates, since array index isn't a stable identity once uploads can settle out of order. */
+  id: string;
+  file: File;
+  status: "uploading" | "uploaded" | "error";
+  /** Set once status is "uploaded" — the Drive webViewLink. */
+  url?: string;
+}
+
 export interface Method2Location {
   id: string;
   floorLevel: FloorLevel;
@@ -78,8 +95,8 @@ export interface Method2Location {
   classroomGrade?: string;
   classroomSection?: string;
   scores: Record<string, Condition>;
-  /** Actual File objects, kept client-side until submission uploads them to Drive. Multiple photos per item are allowed. */
-  photos: Record<string, File[]>;
+  /** Multiple photos per item are allowed. Each uploads to Drive individually on attach — see PhotoAsset. */
+  photos: Record<string, PhotoAsset[]>;
   notes: Record<string, string>;
 }
 

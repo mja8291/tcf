@@ -1,4 +1,4 @@
-import type { Condition, FloorLevel, LocationType, PowerSupply, School } from "@/lib/types";
+import type { Condition, FloorLevel, LocationType, PhotoAsset, PowerSupply, School } from "@/lib/types";
 import type { ScoreResult } from "@/lib/types";
 
 interface SubmitLocation {
@@ -9,7 +9,7 @@ interface SubmitLocation {
   classroomGrade?: string;
   classroomSection?: string;
   scores: Record<string, Condition>;
-  photos: Record<string, File[]>;
+  photos: Record<string, PhotoAsset[]>;
   notes: Record<string, string>;
 }
 
@@ -21,8 +21,10 @@ interface SubmitState {
   principal: string;
   powerSupply: PowerSupply;
   complaints: string;
-  m1: { scores: Record<string, Condition>; photos: Record<string, File[]>; notes: Record<string, string> };
+  m1: { scores: Record<string, Condition>; photos: Record<string, PhotoAsset[]>; notes: Record<string, string> };
   m2: { locations: SubmitLocation[] };
+  /** Minted once at SET_METHOD and carried through every photo upload for this attempt — see survey-context.tsx. Required by the time Review can call buildSubmission (method must be set to get there); the crypto fallback below only guards a state shape that shouldn't occur. */
+  surveyId: string | null;
   /** ISO timestamp set when the method was chosen — see survey-context.tsx SET_METHOD. */
   startTime: string | null;
   /** See survey-context.tsx PAUSE_TIMER/RESUME_TIMER. pausedAt is the still-open pause span (if any) at submit time; pausedSeconds is everything already accrued from earlier completed pauses. */
@@ -68,33 +70,29 @@ export interface SubmitPayload {
   }[];
   /** attachmentKey -> note text, for items/locations that have a note but maybe no photo. */
   notes: { attachmentKey: string; itemName: string; locationName: string; note: string }[];
-  /** attachmentKey -> {itemName, locationName}, used to match uploaded file fields back to items server-side. */
-  photoKeys: { attachmentKey: string; itemName: string; locationName: string }[];
-}
-
-export interface SubmitFile {
-  attachmentKey: string;
-  file: File;
+  /** Every successfully-uploaded photo (see Round 3 Task 8 — uploaded individually on attach, well before this payload is built) with the Drive url already resolved. No raw photo bytes ever travel through this payload. */
+  photoKeys: { attachmentKey: string; itemName: string; locationName: string; url: string }[];
 }
 
 export interface Submission {
   payload: SubmitPayload;
-  files: SubmitFile[];
 }
 
 /**
- * Builds the plain-data submission (JSON-serializable payload + the raw File
- * objects for any photos) without touching FormData, so the same result can
- * either be sent immediately or queued in IndexedDB and sent later when back
- * online — see src/lib/offline/sync.ts.
+ * Builds the plain-data, JSON-serializable submission payload — no File
+ * objects and no upload work happens here (every photo already uploaded to
+ * Drive individually on attach; see src/lib/photo-upload.ts). That's what
+ * keeps this payload small enough to queue in IndexedDB and retry offline
+ * — see src/lib/offline/sync.ts — without ever risking Vercel's 4.5MB
+ * request-body limit the way the old all-in-one submit did.
+ *
+ * Photos still "uploading" or in "error" state are skipped here — the
+ * Review page blocks the Submit button until every attached photo has
+ * resolved, so this should only ever see "uploaded" entries in practice.
  */
 export function buildSubmission(state: SubmitState, result: ScoreResult): Submission {
-  const surveyId =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${state.school.schoolId}-${Date.now()}`;
+  const surveyId = state.surveyId ?? `${state.school.schoolId}-${Date.now()}`;
 
-  const files: SubmitFile[] = [];
   const photoKeys: SubmitPayload["photoKeys"] = [];
   const notes: SubmitPayload["notes"] = [];
 
@@ -109,11 +107,10 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
     : null;
 
   if (state.method === 1) {
-    for (const [itemName, itemFiles] of Object.entries(state.m1.photos)) {
-      itemFiles.forEach((file, i) => {
-        const key = `${itemName}::${i}`;
-        photoKeys.push({ attachmentKey: key, itemName, locationName: "" });
-        files.push({ attachmentKey: key, file });
+    for (const [itemName, itemPhotos] of Object.entries(state.m1.photos)) {
+      itemPhotos.forEach((photo, i) => {
+        if (photo.status !== "uploaded" || !photo.url) return;
+        photoKeys.push({ attachmentKey: `${itemName}::${i}`, itemName, locationName: "", url: photo.url });
       });
     }
     for (const [itemName, note] of Object.entries(state.m1.notes)) {
@@ -121,11 +118,10 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
     }
   } else {
     for (const loc of state.m2.locations) {
-      for (const [itemName, itemFiles] of Object.entries(loc.photos)) {
-        itemFiles.forEach((file, i) => {
-          const key = `${loc.id}::${itemName}::${i}`;
-          photoKeys.push({ attachmentKey: key, itemName, locationName: loc.name });
-          files.push({ attachmentKey: key, file });
+      for (const [itemName, itemPhotos] of Object.entries(loc.photos)) {
+        itemPhotos.forEach((photo, i) => {
+          if (photo.status !== "uploaded" || !photo.url) return;
+          photoKeys.push({ attachmentKey: `${loc.id}::${itemName}::${i}`, itemName, locationName: loc.name, url: photo.url });
         });
       }
       for (const [itemName, note] of Object.entries(loc.notes)) {
@@ -172,15 +168,28 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
     photoKeys,
   };
 
-  return { payload, files };
+  return { payload };
 }
 
-/** Rebuilds the multipart form the /api/submit route expects from a plain Submission. */
-export function formDataFromSubmission({ payload, files }: Submission): FormData {
-  const formData = new FormData();
-  for (const { attachmentKey, file } of files) {
-    formData.append(`photo:${attachmentKey}`, file, file.name);
+/**
+ * Counts photos still mid-upload or that failed to upload, across every
+ * item/location's photo map — the Review page uses this to block Submit
+ * until every attached photo has actually resolved to a Drive url (or the
+ * user's removed/retried the failed ones). See Round 3 Task 8.
+ */
+export function countUnresolvedPhotos(photoMaps: Record<string, PhotoAsset[]>[]): {
+  uploading: number;
+  failed: number;
+} {
+  let uploading = 0;
+  let failed = 0;
+  for (const map of photoMaps) {
+    for (const list of Object.values(map)) {
+      for (const photo of list) {
+        if (photo.status === "uploading") uploading++;
+        else if (photo.status === "error") failed++;
+      }
+    }
   }
-  formData.append("payload", JSON.stringify(payload));
-  return formData;
+  return { uploading, failed };
 }

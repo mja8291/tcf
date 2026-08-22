@@ -1,6 +1,5 @@
 "use client";
 
-import { formDataFromSubmission } from "@/lib/submit";
 import { getPendingSubmissions, removePendingSubmission } from "./db";
 
 /** Fired on window whenever the pending-submission count may have changed, so UI badges can refresh. */
@@ -27,7 +26,11 @@ export async function flushPendingSubmissions(): Promise<{ succeeded: number; re
     const pending = await getPendingSubmissions();
     for (const submission of pending) {
       try {
-        const res = await fetch("/api/submit", { method: "POST", body: formDataFromSubmission(submission) });
+        const res = await fetch("/api/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(submission.payload),
+        });
         if (!res.ok) throw new Error(`Submit failed: ${res.status}`);
         await removePendingSubmission(submission.id);
         succeeded++;

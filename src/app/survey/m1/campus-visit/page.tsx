@@ -10,9 +10,10 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PhotoAttachButtons, PhotoThumbList, usePhotoAttachHandler } from "@/components/ui/PhotoAttach";
 import { CampusVisitInstructions } from "@/components/survey/CampusVisitInstructions";
 import { useSurvey } from "@/lib/survey-context";
+import { usePhotoUploadHandlers } from "@/lib/use-photo-upload-handlers";
 import { METHOD1_ITEMS } from "@/lib/data/method1-items";
 import { CATEGORIES } from "@/lib/scoring";
-import type { Category } from "@/lib/types";
+import type { Category, PhotoAsset } from "@/lib/types";
 
 // Matches CategoryCard.tsx's tint convention, for visual consistency with
 // how the rest of Method 1 groups these same items.
@@ -42,7 +43,15 @@ function itemAnchorId(name: string) {
  */
 export default function CampusVisitPage() {
   const router = useRouter();
-  const { state, m1AddPhoto, m1RemovePhoto, discardMethodProgress } = useSurvey();
+  const { state, m1AddPhoto, m1SetPhotoStatus, m1RemovePhoto, discardMethodProgress } = useSurvey();
+  const { handleAddPhoto, handleRetryPhoto, handleRemovePhoto } = usePhotoUploadHandlers({
+    surveyId: state.surveyId,
+    region: state.school?.region ?? "",
+    campusName: state.school?.name ?? "",
+    addPhoto: m1AddPhoto,
+    setPhotoStatus: m1SetPhotoStatus,
+    removePhoto: m1RemovePhoto,
+  });
   const [confirmBack, setConfirmBack] = useState(false);
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -113,8 +122,9 @@ export default function CampusVisitPage() {
             itemName={item.name}
             photos={state.m1.photos[item.name] ?? []}
             highlighted={highlighted === item.name}
-            onAdd={(file) => m1AddPhoto(item.name, file)}
-            onRemove={(index) => m1RemovePhoto(item.name, index)}
+            onAdd={(file) => handleAddPhoto(item.name, file)}
+            onRemove={(id) => handleRemovePhoto(item.name, id)}
+            onRetry={(id, file) => handleRetryPhoto(item.name, id, file)}
           />
         ))}
       </div>
@@ -132,12 +142,14 @@ function CampusVisitPhotoRow({
   highlighted,
   onAdd,
   onRemove,
+  onRetry,
 }: {
   itemName: string;
-  photos: File[];
+  photos: PhotoAsset[];
   highlighted: boolean;
   onAdd: (file: File) => void;
-  onRemove: (index: number) => void;
+  onRemove: (id: string) => void;
+  onRetry: (id: string, file: File) => void;
 }) {
   const { compressing, handlePick } = usePhotoAttachHandler(onAdd);
   return (
@@ -150,7 +162,7 @@ function CampusVisitPhotoRow({
       <div className="flex-1 min-w-0 px-1">
         <span className="block truncate text-[12.5px] text-ink">{itemName}</span>
         {compressing ? <div className="text-[10.5px] text-ink-faint mt-0.5">Compressing photo…</div> : null}
-        <PhotoThumbList photos={photos} onRemovePhoto={onRemove} />
+        <PhotoThumbList photos={photos} onRemovePhoto={onRemove} onRetryPhoto={onRetry} />
       </div>
       <PhotoAttachButtons itemKey={itemName} photoCount={photos.length} compressing={compressing} onPick={handlePick} />
     </div>

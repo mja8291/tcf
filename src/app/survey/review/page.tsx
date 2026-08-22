@@ -14,7 +14,7 @@ import { CATEGORIES, CRITICAL_ITEMS, ratingBand, scoreMethod1, scoreMethod2 } fr
 import { isMethod2LocationComplete } from "@/lib/data/method2-items";
 import { OATH_TEXT, POWER_SUPPLY_OPTIONS } from "@/lib/data/content";
 import type { PowerSupply } from "@/lib/types";
-import { buildSubmission, formDataFromSubmission } from "@/lib/submit";
+import { buildSubmission, countUnresolvedPhotos } from "@/lib/submit";
 import { queueSubmission } from "@/lib/offline/db";
 import { formatDuration } from "@/lib/format-duration";
 
@@ -69,7 +69,17 @@ export default function ReviewPage() {
   if (!state.school || !state.method) return null;
 
   const band = ratingBand(result.overall);
-  const canSubmit = oath && Boolean(powerSupply) && !submitting;
+  // Round 3 Task 8: photos upload individually as soon as they're attached
+  // (see use-photo-upload-handlers.ts), not bundled into this submit — but
+  // that means a photo can still be mid-upload, or stuck in "error", by the
+  // time the surveyor reaches Review. Submitting anyway would either send a
+  // payload missing that photo's reference entirely, or (for "uploading")
+  // race the upload's own state update — so block until every attached
+  // photo has resolved one way or the other.
+  const { uploading: photosUploading, failed: photosFailed } = countUnresolvedPhotos(
+    state.method === 1 ? [state.m1.photos] : state.m2.locations.map((l) => l.photos)
+  );
+  const canSubmit = oath && Boolean(powerSupply) && !submitting && photosUploading === 0 && photosFailed === 0;
 
   async function submit() {
     if (!canSubmit || !powerSupply || !state.school || !state.method) return;
@@ -85,7 +95,11 @@ export default function ReviewPage() {
 
     let res: Response;
     try {
-      res = await fetch("/api/submit", { method: "POST", body: formDataFromSubmission(submission) });
+      res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(submission.payload),
+      });
     } catch {
       // Couldn't reach the server at all — treat as offline. Queue it locally
       // and sync automatically once connectivity returns (see PwaBootstrap).
@@ -94,7 +108,20 @@ export default function ReviewPage() {
       return;
     }
     if (!res.ok) {
-      setError("Couldn't submit the survey. Check your connection and try again.");
+      // Distinguish the failure instead of one generic message for
+      // everything — a 413 or 5xx reads very differently from a dropped
+      // connection, and conflating them is exactly what made the original
+      // Task 8 bug ("Couldn't submit... check your connection") so
+      // misleading when the real cause was an oversized request.
+      if (res.status === 413) {
+        setError(
+          "This submission is too large to send — that shouldn't happen now that photos upload separately; try removing and re-attaching any recent photos, or contact support if it persists."
+        );
+      } else if (res.status >= 500) {
+        setError("Something went wrong on our end submitting the survey. Try again in a moment.");
+      } else {
+        setError("Couldn't submit the survey. Check your connection and try again.");
+      }
       setSubmitting(false);
       return;
     }
@@ -201,6 +228,18 @@ export default function ReviewPage() {
         {OATH_TEXT}
       </label>
 
+      {photosUploading > 0 ? (
+        <p className="text-xs text-ink-faint mt-3">
+          {photosUploading === 1 ? "1 photo is" : `${photosUploading} photos are`} still uploading — this finishes on its
+          own, no need to wait on this screen.
+        </p>
+      ) : null}
+      {photosFailed > 0 ? (
+        <p className="text-xs text-band-poor mt-3">
+          {photosFailed === 1 ? "1 photo" : `${photosFailed} photos`} failed to upload — go back to the item and retry or
+          remove {photosFailed === 1 ? "it" : "them"} before submitting.
+        </p>
+      ) : null}
       {error ? <p className="text-xs text-band-poor mt-3">{error}</p> : null}
 
       <BottomBar>

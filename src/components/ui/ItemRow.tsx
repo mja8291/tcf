@@ -2,7 +2,7 @@
 
 import { Info, StickyNote } from "lucide-react";
 import { useState } from "react";
-import type { Condition, RubricItem } from "@/lib/types";
+import type { Condition, PhotoAsset, RubricItem } from "@/lib/types";
 import { ConditionPills } from "./ConditionPills";
 import { IconButton } from "./IconButton";
 import { ConditionInfoPanel } from "./ConditionInfoPanel";
@@ -12,12 +12,13 @@ interface ItemRowProps {
   item: RubricItem;
   worstCase?: boolean;
   value: Condition | undefined;
-  /** Multiple photos per item are allowed — this is the item's full list, not just the latest one. */
-  photos: File[];
+  /** Multiple photos per item are allowed — this is the item's full list, not just the latest one. Each uploads to Drive individually on attach; see PhotoAsset. */
+  photos: PhotoAsset[];
   note: string | undefined;
   onScoreChange: (value: Condition) => void;
   onAddPhoto: (file: File) => void;
-  onRemovePhoto: (index: number) => void;
+  onRemovePhoto: (id: string) => void;
+  onRetryPhoto: (id: string, file: File) => void;
   onNoteChange: (value: string) => void;
   /** Set after a blocked save/return attempt, for items still unscored — shows a red asterisk so the user can see exactly what's left. */
   pending?: boolean;
@@ -32,6 +33,7 @@ export function ItemRow({
   onScoreChange,
   onAddPhoto,
   onRemovePhoto,
+  onRetryPhoto,
   onNoteChange,
   pending,
 }: ItemRowProps) {
@@ -72,7 +74,7 @@ export function ItemRow({
       </div>
       <ConditionPills value={value} onChange={onScoreChange} options={item.conditionOverride} />
       {compressing ? <div className="text-[11px] text-ink-faint mt-1">Compressing photo…</div> : null}
-      <PhotoThumbList photos={photos} onRemovePhoto={onRemovePhoto} />
+      <PhotoThumbList photos={photos} onRemovePhoto={onRemovePhoto} onRetryPhoto={onRetryPhoto} />
       {noteOpen ? (
         <input
           type="text"

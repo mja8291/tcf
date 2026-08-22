@@ -1,7 +1,16 @@
 "use client";
 
 import { createContext, useContext, useMemo, useReducer } from "react";
-import type { Condition, FloorLevel, LocationType, Method2Location, PowerSupply, School, WorkCategory } from "@/lib/types";
+import type {
+  Condition,
+  FloorLevel,
+  LocationType,
+  Method2Location,
+  PhotoAsset,
+  PowerSupply,
+  School,
+  WorkCategory,
+} from "@/lib/types";
 import { UNNAMED_LOCATION_TYPES } from "@/lib/data/method2-items";
 
 interface M2Current {
@@ -12,8 +21,8 @@ interface M2Current {
   classroomSection?: string;
   activeWorkCategory: WorkCategory | null;
   scores: Record<string, Condition>;
-  /** Multiple photos per item are allowed. */
-  photos: Record<string, File[]>;
+  /** Multiple photos per item are allowed. Each uploads to Drive individually on attach — see PhotoAsset. */
+  photos: Record<string, PhotoAsset[]>;
   notes: Record<string, string>;
 }
 
@@ -27,14 +36,22 @@ interface SurveyState {
   complaints: string;
   m1: {
     scores: Record<string, Condition>;
-    /** Multiple photos per item are allowed. */
-    photos: Record<string, File[]>;
+    /** Multiple photos per item are allowed. Each uploads to Drive individually on attach — see PhotoAsset. */
+    photos: Record<string, PhotoAsset[]>;
     notes: Record<string, string>;
   };
   m2: {
     locations: Method2Location[];
     current: M2Current | null;
   };
+  /**
+   * Set the moment a method is chosen, alongside startTime — every photo
+   * uploaded during this attempt (Round 3 Task 8) carries this same id in
+   * its Drive folder path, and the final submit's response/attachment rows
+   * must reuse the exact same id so photos correlate back to their survey
+   * row. Regenerated fresh on every SET_METHOD, same lifecycle as startTime.
+   */
+  surveyId: string | null;
   /** Set right after a successful (non-queued) submit, so the Done screen can offer downloads. */
   lastSurveyId: string | null;
   /** ISO timestamp set the moment a method is chosen (not on page load, not on first item answered). Cleared if the user discards progress and goes back to method selection. */
@@ -43,6 +60,10 @@ interface SurveyState {
   pausedAt: string | null;
   /** Seconds accumulated across every *completed* pause span. Does not include a currently-open pause — see pausedAt. */
   pausedSeconds: number;
+}
+
+function newSurveyId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `survey-${Date.now()}`;
 }
 
 function initialState(): SurveyState {
@@ -56,11 +77,34 @@ function initialState(): SurveyState {
     complaints: "",
     m1: { scores: {}, photos: {}, notes: {} },
     m2: { locations: [], current: null },
+    surveyId: null,
     lastSurveyId: null,
     startTime: null,
     pausedAt: null,
     pausedSeconds: 0,
   };
+}
+
+// Small pure helpers so the M1/add-status-remove trio doesn't repeat the
+// same Record<string, PhotoAsset[]> plumbing four times over (M1 + M2
+// current each need add/status-update/remove).
+function addPhoto(photos: Record<string, PhotoAsset[]>, name: string, asset: PhotoAsset): Record<string, PhotoAsset[]> {
+  return { ...photos, [name]: [...(photos[name] ?? []), asset] };
+}
+function setPhotoStatus(
+  photos: Record<string, PhotoAsset[]>,
+  name: string,
+  id: string,
+  status: PhotoAsset["status"],
+  url?: string
+): Record<string, PhotoAsset[]> {
+  return {
+    ...photos,
+    [name]: (photos[name] ?? []).map((p) => (p.id === id ? { ...p, status, url: url ?? p.url } : p)),
+  };
+}
+function removePhoto(photos: Record<string, PhotoAsset[]>, name: string, id: string): Record<string, PhotoAsset[]> {
+  return { ...photos, [name]: (photos[name] ?? []).filter((p) => p.id !== id) };
 }
 
 function emptyM2Current(floorLevel: FloorLevel): M2Current {
@@ -75,8 +119,9 @@ type Action =
   | { type: "SET_COMPLAINTS"; value: string }
   | { type: "SET_LAST_SURVEY_ID"; surveyId: string | null }
   | { type: "M1_SET_SCORE"; name: string; value: Condition }
-  | { type: "M1_ADD_PHOTO"; name: string; file: File }
-  | { type: "M1_REMOVE_PHOTO"; name: string; index: number }
+  | { type: "M1_ADD_PHOTO"; name: string; id: string; file: File }
+  | { type: "M1_PHOTO_STATUS"; name: string; id: string; status: PhotoAsset["status"]; url?: string }
+  | { type: "M1_REMOVE_PHOTO"; name: string; id: string }
   | { type: "M1_SET_NOTE"; name: string; value: string }
   | { type: "M2_SET_FLOOR"; floorLevel: FloorLevel; autoName?: string }
   | { type: "M2_SET_LOCATION_TYPE"; floorLevel: FloorLevel; locationType: LocationType; autoName?: string }
@@ -84,8 +129,9 @@ type Action =
   | { type: "M2_SET_CLASSROOM"; floorLevel: FloorLevel; grade: string; section: string }
   | { type: "M2_OPEN_CATEGORY"; workCategory: WorkCategory }
   | { type: "M2_CURRENT_SET_SCORE"; name: string; value: Condition }
-  | { type: "M2_CURRENT_ADD_PHOTO"; name: string; file: File }
-  | { type: "M2_CURRENT_REMOVE_PHOTO"; name: string; index: number }
+  | { type: "M2_CURRENT_ADD_PHOTO"; name: string; id: string; file: File }
+  | { type: "M2_CURRENT_PHOTO_STATUS"; name: string; id: string; status: PhotoAsset["status"]; url?: string }
+  | { type: "M2_CURRENT_REMOVE_PHOTO"; name: string; id: string }
   | { type: "M2_CURRENT_SET_NOTE"; name: string; value: string }
   | { type: "M2_FINALIZE_CURRENT" }
   | { type: "M2_RESUME_LOCATION"; id: string }
@@ -130,10 +176,14 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       return { ...state, school: action.school };
     case "SET_METHOD":
       // startTime is set here, not on page load or first item answered — the
-      // moment a method is actually chosen is what "starting the assessment" means.
+      // moment a method is actually chosen is what "starting the assessment"
+      // means. surveyId is minted here too (Round 3 Task 8) — every photo
+      // uploaded from here on carries this id in its Drive path, and submit
+      // must reuse the exact same id so photos correlate back to their row.
       return {
         ...state,
         method: action.method,
+        surveyId: newSurveyId(),
         startTime: new Date().toISOString(),
         pausedAt: null,
         pausedSeconds: 0,
@@ -149,13 +199,15 @@ function reducer(state: SurveyState, action: Action): SurveyState {
     case "M1_SET_SCORE":
       return { ...state, m1: { ...state.m1, scores: { ...state.m1.scores, [action.name]: action.value } } };
     case "M1_ADD_PHOTO": {
-      const existing = state.m1.photos[action.name] ?? [];
-      const photos = { ...state.m1.photos, [action.name]: [...existing, action.file] };
+      const photos = addPhoto(state.m1.photos, action.name, { id: action.id, file: action.file, status: "uploading" });
+      return { ...state, m1: { ...state.m1, photos } };
+    }
+    case "M1_PHOTO_STATUS": {
+      const photos = setPhotoStatus(state.m1.photos, action.name, action.id, action.status, action.url);
       return { ...state, m1: { ...state.m1, photos } };
     }
     case "M1_REMOVE_PHOTO": {
-      const existing = state.m1.photos[action.name] ?? [];
-      const photos = { ...state.m1.photos, [action.name]: existing.filter((_, i) => i !== action.index) };
+      const photos = removePhoto(state.m1.photos, action.name, action.id);
       return { ...state, m1: { ...state.m1, photos } };
     }
     case "M1_SET_NOTE":
@@ -208,14 +260,21 @@ function reducer(state: SurveyState, action: Action): SurveyState {
         : state;
     case "M2_CURRENT_ADD_PHOTO": {
       if (!state.m2.current) return state;
-      const existing = state.m2.current.photos[action.name] ?? [];
-      const photos = { ...state.m2.current.photos, [action.name]: [...existing, action.file] };
+      const photos = addPhoto(state.m2.current.photos, action.name, {
+        id: action.id,
+        file: action.file,
+        status: "uploading",
+      });
+      return { ...state, m2: { ...state.m2, current: { ...state.m2.current, photos } } };
+    }
+    case "M2_CURRENT_PHOTO_STATUS": {
+      if (!state.m2.current) return state;
+      const photos = setPhotoStatus(state.m2.current.photos, action.name, action.id, action.status, action.url);
       return { ...state, m2: { ...state.m2, current: { ...state.m2.current, photos } } };
     }
     case "M2_CURRENT_REMOVE_PHOTO": {
       if (!state.m2.current) return state;
-      const existing = state.m2.current.photos[action.name] ?? [];
-      const photos = { ...state.m2.current.photos, [action.name]: existing.filter((_, i) => i !== action.index) };
+      const photos = removePhoto(state.m2.current.photos, action.name, action.id);
       return { ...state, m2: { ...state.m2, current: { ...state.m2.current, photos } } };
     }
     case "M2_CURRENT_SET_NOTE":
@@ -313,8 +372,9 @@ interface SurveyContextValue {
   setComplaints: (value: string) => void;
   setLastSurveyId: (surveyId: string | null) => void;
   m1SetScore: (name: string, value: Condition) => void;
-  m1AddPhoto: (name: string, file: File) => void;
-  m1RemovePhoto: (name: string, index: number) => void;
+  m1AddPhoto: (name: string, id: string, file: File) => void;
+  m1SetPhotoStatus: (name: string, id: string, status: PhotoAsset["status"], url?: string) => void;
+  m1RemovePhoto: (name: string, id: string) => void;
   m1SetNote: (name: string, value: string) => void;
   m2SetFloor: (floorLevel: FloorLevel, autoName?: string) => void;
   m2SetLocationType: (floorLevel: FloorLevel, locationType: LocationType, autoName?: string) => void;
@@ -322,8 +382,9 @@ interface SurveyContextValue {
   m2SetClassroom: (floorLevel: FloorLevel, grade: string, section: string) => void;
   m2OpenCategory: (workCategory: WorkCategory) => void;
   m2CurrentSetScore: (name: string, value: Condition) => void;
-  m2CurrentAddPhoto: (name: string, file: File) => void;
-  m2CurrentRemovePhoto: (name: string, index: number) => void;
+  m2CurrentAddPhoto: (name: string, id: string, file: File) => void;
+  m2CurrentSetPhotoStatus: (name: string, id: string, status: PhotoAsset["status"], url?: string) => void;
+  m2CurrentRemovePhoto: (name: string, id: string) => void;
   m2CurrentSetNote: (name: string, value: string) => void;
   m2FinalizeCurrent: () => void;
   m2ResumeLocation: (id: string) => void;
@@ -348,8 +409,9 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       setComplaints: (value) => dispatch({ type: "SET_COMPLAINTS", value }),
       setLastSurveyId: (surveyId) => dispatch({ type: "SET_LAST_SURVEY_ID", surveyId }),
       m1SetScore: (name, value) => dispatch({ type: "M1_SET_SCORE", name, value }),
-      m1AddPhoto: (name, file) => dispatch({ type: "M1_ADD_PHOTO", name, file }),
-      m1RemovePhoto: (name, index) => dispatch({ type: "M1_REMOVE_PHOTO", name, index }),
+      m1AddPhoto: (name, id, file) => dispatch({ type: "M1_ADD_PHOTO", name, id, file }),
+      m1SetPhotoStatus: (name, id, status, url) => dispatch({ type: "M1_PHOTO_STATUS", name, id, status, url }),
+      m1RemovePhoto: (name, id) => dispatch({ type: "M1_REMOVE_PHOTO", name, id }),
       m1SetNote: (name, value) => dispatch({ type: "M1_SET_NOTE", name, value }),
       m2SetFloor: (floorLevel, autoName) => dispatch({ type: "M2_SET_FLOOR", floorLevel, autoName }),
       m2SetLocationType: (floorLevel, locationType, autoName) =>
@@ -358,8 +420,10 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       m2SetClassroom: (floorLevel, grade, section) => dispatch({ type: "M2_SET_CLASSROOM", floorLevel, grade, section }),
       m2OpenCategory: (workCategory) => dispatch({ type: "M2_OPEN_CATEGORY", workCategory }),
       m2CurrentSetScore: (name, value) => dispatch({ type: "M2_CURRENT_SET_SCORE", name, value }),
-      m2CurrentAddPhoto: (name, file) => dispatch({ type: "M2_CURRENT_ADD_PHOTO", name, file }),
-      m2CurrentRemovePhoto: (name, index) => dispatch({ type: "M2_CURRENT_REMOVE_PHOTO", name, index }),
+      m2CurrentAddPhoto: (name, id, file) => dispatch({ type: "M2_CURRENT_ADD_PHOTO", name, id, file }),
+      m2CurrentSetPhotoStatus: (name, id, status, url) =>
+        dispatch({ type: "M2_CURRENT_PHOTO_STATUS", name, id, status, url }),
+      m2CurrentRemovePhoto: (name, id) => dispatch({ type: "M2_CURRENT_REMOVE_PHOTO", name, id }),
       m2CurrentSetNote: (name, value) => dispatch({ type: "M2_CURRENT_SET_NOTE", name, value }),
       m2FinalizeCurrent: () => dispatch({ type: "M2_FINALIZE_CURRENT" }),
       m2ResumeLocation: (id) => dispatch({ type: "M2_RESUME_LOCATION", id }),

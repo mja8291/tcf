@@ -8,13 +8,22 @@ import { ItemRow } from "@/components/ui/ItemRow";
 import { Button } from "@/components/ui/Button";
 import { BottomBar } from "@/components/ui/BottomBar";
 import { useSurvey } from "@/lib/survey-context";
+import { usePhotoUploadHandlers } from "@/lib/use-photo-upload-handlers";
 import { METHOD1_ITEMS } from "@/lib/data/method1-items";
 import { CATEGORIES } from "@/lib/scoring";
 import type { Category } from "@/lib/types";
 
 export default function Method1CategoryScorePage({ params }: { params: Promise<{ category: string }> }) {
   const router = useRouter();
-  const { state, m1SetScore, m1AddPhoto, m1RemovePhoto, m1SetNote } = useSurvey();
+  const { state, m1SetScore, m1AddPhoto, m1SetPhotoStatus, m1RemovePhoto, m1SetNote } = useSurvey();
+  const { handleAddPhoto, handleRetryPhoto, handleRemovePhoto } = usePhotoUploadHandlers({
+    surveyId: state.surveyId,
+    region: state.school?.region ?? "",
+    campusName: state.school?.name ?? "",
+    addPhoto: m1AddPhoto,
+    setPhotoStatus: m1SetPhotoStatus,
+    removePhoto: m1RemovePhoto,
+  });
   const { category: categoryParam } = use(params);
   const category = CATEGORIES.includes(categoryParam as Category) ? (categoryParam as Category) : null;
   const [attemptedSave, setAttemptedSave] = useState(false);
@@ -50,8 +59,9 @@ export default function Method1CategoryScorePage({ params }: { params: Promise<{
           photos={state.m1.photos[item.name] ?? []}
           note={state.m1.notes[item.name]}
           onScoreChange={(v) => m1SetScore(item.name, v)}
-          onAddPhoto={(f) => m1AddPhoto(item.name, f)}
-          onRemovePhoto={(i) => m1RemovePhoto(item.name, i)}
+          onAddPhoto={(f) => handleAddPhoto(item.name, f)}
+          onRemovePhoto={(id) => handleRemovePhoto(item.name, id)}
+          onRetryPhoto={(id, f) => handleRetryPhoto(item.name, id, f)}
           onNoteChange={(v) => m1SetNote(item.name, v)}
           pending={attemptedSave && !state.m1.scores[item.name]}
         />

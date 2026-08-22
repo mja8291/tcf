@@ -8,12 +8,25 @@ import { ItemRow } from "@/components/ui/ItemRow";
 import { Button } from "@/components/ui/Button";
 import { BottomBar } from "@/components/ui/BottomBar";
 import { useSurvey } from "@/lib/survey-context";
+import { usePhotoUploadHandlers } from "@/lib/use-photo-upload-handlers";
 import { method2GroupsForLocationAndCategory } from "@/lib/data/method2-items";
 
 export default function Method2ScorePage() {
   const router = useRouter();
-  const { state, m2CurrentSetScore, m2CurrentAddPhoto, m2CurrentRemovePhoto, m2CurrentSetNote } = useSurvey();
+  const { state, m2CurrentSetScore, m2CurrentAddPhoto, m2CurrentSetPhotoStatus, m2CurrentRemovePhoto, m2CurrentSetNote } =
+    useSurvey();
   const current = state.m2.current;
+  const { handleAddPhoto, handleRetryPhoto, handleRemovePhoto } = usePhotoUploadHandlers({
+    surveyId: state.surveyId,
+    region: state.school?.region ?? "",
+    campusName: state.school?.name ?? "",
+    floorLevel: current?.floorLevel,
+    locationType: current?.type ?? undefined,
+    locationName: current?.name,
+    addPhoto: m2CurrentAddPhoto,
+    setPhotoStatus: m2CurrentSetPhotoStatus,
+    removePhoto: m2CurrentRemovePhoto,
+  });
   const [attemptedSave, setAttemptedSave] = useState(false);
 
   useEffect(() => {
@@ -44,8 +57,9 @@ export default function Method2ScorePage() {
           photos={current.photos[item.name] ?? []}
           note={current.notes[item.name]}
           onScoreChange={(v) => m2CurrentSetScore(item.name, v)}
-          onAddPhoto={(f) => m2CurrentAddPhoto(item.name, f)}
-          onRemovePhoto={(i) => m2CurrentRemovePhoto(item.name, i)}
+          onAddPhoto={(f) => handleAddPhoto(item.name, f)}
+          onRemovePhoto={(id) => handleRemovePhoto(item.name, id)}
+          onRetryPhoto={(id, f) => handleRetryPhoto(item.name, id, f)}
           onNoteChange={(v) => m2CurrentSetNote(item.name, v)}
           pending={attemptedSave && !current.scores[item.name]}
         />
