@@ -30,7 +30,14 @@ export default function FindSchoolPage() {
     });
 
     fetch("/api/schools")
-      .then((r) => r.json())
+      .then((r) => {
+        // A non-OK response (e.g. a 500 from a dead upstream credential)
+        // still resolves this promise rather than rejecting it — treat it
+        // the same as a network failure so the catch below runs and the
+        // good offline cache isn't overwritten with an empty list.
+        if (!r.ok) throw new Error(`GET /api/schools -> ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
         const list = data.schools ?? [];
         setSchools(list);
@@ -38,7 +45,8 @@ export default function FindSchoolPage() {
         if (list.length > 0) cacheSchools(list);
       })
       .catch(() => {
-        // Network failed — whatever we already loaded from cache (if any) stands.
+        // Network failed, or the server responded but not with a usable
+        // list — whatever we already loaded from cache (if any) stands.
       });
   }, []);
 
