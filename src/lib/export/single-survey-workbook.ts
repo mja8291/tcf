@@ -1,4 +1,3 @@
-import "server-only";
 import ExcelJS from "exceljs";
 import { CATEGORY_WEIGHT } from "@/lib/scoring";
 import { formatDurationFriendly } from "@/lib/format-duration";
@@ -30,6 +29,15 @@ export interface SingleSurveyExportInput {
  * lookup + renormalizing category/overall weighting), matching
  * MQI_Illustrative_Workbook.xlsx's formula pattern exactly — not just
  * computed values — so it can be audited or adjusted in Excel afterward.
+ *
+ * Was server-only until Round 3 Task 9 added a pre-submission export
+ * fallback: the whole point of that feature is producing a usable record
+ * when submission itself is failing, which means it has to work from the
+ * client with no network round trip — so this now also gets called
+ * directly from src/lib/export/draft-export.ts, in addition to the
+ * existing post-submission API routes. exceljs ships a browser build via
+ * its package.json "browser" field, so this needed no other change to run
+ * client-side.
  */
 export function buildSingleSurveyWorkbook(input: SingleSurveyExportInput): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();

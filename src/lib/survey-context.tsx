@@ -26,7 +26,7 @@ interface M2Current {
   notes: Record<string, string>;
 }
 
-interface SurveyState {
+export interface SurveyState {
   school: School | null;
   method: 1 | 2 | null;
   asm: string;
@@ -135,6 +135,7 @@ type Action =
   | { type: "M2_CURRENT_SET_NOTE"; name: string; value: string }
   | { type: "M2_FINALIZE_CURRENT" }
   | { type: "M2_RESUME_LOCATION"; id: string }
+  | { type: "LOAD_DRAFT"; state: SurveyState }
   | { type: "DISCARD_METHOD_PROGRESS" }
   | { type: "PAUSE_TIMER" }
   | { type: "RESUME_TIMER" }
@@ -154,6 +155,7 @@ const TIMER_EXEMPT_ACTIONS = new Set<Action["type"]>([
   "SET_SCHOOL",
   "SET_METHOD",
   "SET_LAST_SURVEY_ID",
+  "LOAD_DRAFT",
   "DISCARD_METHOD_PROGRESS",
   "PAUSE_TIMER",
   "RESUME_TIMER",
@@ -330,6 +332,12 @@ function reducer(state: SurveyState, action: Action): SurveyState {
         m2: { locations: state.m2.locations.filter((l) => l.id !== action.id), current },
       };
     }
+    case "LOAD_DRAFT":
+      // Wholesale replacement — a draft is a full snapshot (Round 3 Task 9),
+      // so there's nothing to merge with whatever's currently live (which
+      // should be the freshly-initialized state anyway, since resuming only
+      // happens from the dedicated /survey/resume page).
+      return action.state;
     case "PAUSE_TIMER":
       // No-op if the timer isn't running yet, or is already paused — avoids
       // clobbering an earlier pausedAt (which would lose the time already
@@ -388,6 +396,7 @@ interface SurveyContextValue {
   m2CurrentSetNote: (name: string, value: string) => void;
   m2FinalizeCurrent: () => void;
   m2ResumeLocation: (id: string) => void;
+  loadDraft: (state: SurveyState) => void;
   discardMethodProgress: () => void;
   pauseTimer: () => void;
   resumeTimer: () => void;
@@ -427,6 +436,7 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       m2CurrentSetNote: (name, value) => dispatch({ type: "M2_CURRENT_SET_NOTE", name, value }),
       m2FinalizeCurrent: () => dispatch({ type: "M2_FINALIZE_CURRENT" }),
       m2ResumeLocation: (id) => dispatch({ type: "M2_RESUME_LOCATION", id }),
+      loadDraft: (draftState) => dispatch({ type: "LOAD_DRAFT", state: draftState }),
       discardMethodProgress: () => dispatch({ type: "DISCARD_METHOD_PROGRESS" }),
       pauseTimer: () => dispatch({ type: "PAUSE_TIMER" }),
       resumeTimer: () => dispatch({ type: "RESUME_TIMER" }),

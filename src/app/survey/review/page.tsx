@@ -17,6 +17,8 @@ import type { PowerSupply } from "@/lib/types";
 import { buildSubmission, countUnresolvedPhotos } from "@/lib/submit";
 import { queueSubmission } from "@/lib/offline/db";
 import { formatDuration } from "@/lib/format-duration";
+import { buildDraftExcelBlob, buildDraftPdfBlob, downloadBlob, draftExportFilenameBase } from "@/lib/export/draft-export";
+import { FileSpreadsheet, FileText } from "lucide-react";
 
 export default function ReviewPage() {
   const router = useRouter();
@@ -26,6 +28,7 @@ export default function ReviewPage() {
   const [oath, setOath] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
 
   useEffect(() => {
     if (!state.school || !state.method) {
@@ -127,6 +130,25 @@ export default function ReviewPage() {
     }
     setLastSurveyId(submission.payload.surveyId);
     router.push("/survey/done");
+  }
+
+  // Round 3 Task 9 — a fallback for when Submit itself is failing: an
+  // offline-capable, no-server-round-trip download of everything scored so
+  // far, so the surveyor's work isn't trapped in the app. Available
+  // whenever, not gated on the oath/power-supply Submit requires.
+  async function exportAs(kind: "excel" | "pdf") {
+    if (!state.school || !state.method || exporting) return;
+    setExporting(kind);
+    try {
+      const filename = `${draftExportFilenameBase(state)}.${kind === "excel" ? "xlsx" : "pdf"}`;
+      const blob =
+        kind === "excel"
+          ? await buildDraftExcelBlob({ state, result, powerSupply: powerSupply || "", complaints })
+          : await buildDraftPdfBlob({ state, result, powerSupply: powerSupply || "", complaints });
+      downloadBlob(blob, filename);
+    } finally {
+      setExporting(null);
+    }
   }
 
   return (
@@ -243,6 +265,23 @@ export default function ReviewPage() {
       {error ? <p className="text-xs text-band-poor mt-3">{error}</p> : null}
 
       <BottomBar>
+        <p className="text-[11px] text-ink-faint mb-1.5">
+          Submission failing? Download a copy of everything scored so far — no connection needed.
+        </p>
+        <div className="flex gap-2.5 mb-2.5">
+          <Button variant="ghost" className="flex-1" disabled={exporting !== null} onClick={() => exportAs("excel")}>
+            <span className="inline-flex items-center justify-center gap-1.5">
+              <FileSpreadsheet size={15} />
+              {exporting === "excel" ? "Exporting…" : "Excel"}
+            </span>
+          </Button>
+          <Button variant="ghost" className="flex-1" disabled={exporting !== null} onClick={() => exportAs("pdf")}>
+            <span className="inline-flex items-center justify-center gap-1.5">
+              <FileText size={15} />
+              {exporting === "pdf" ? "Exporting…" : "PDF"}
+            </span>
+          </Button>
+        </div>
         <Button disabled={!canSubmit} onClick={submit}>
           {submitting ? "Submitting…" : "Submit survey"}
         </Button>

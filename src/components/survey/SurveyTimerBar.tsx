@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Pause, Play } from "lucide-react";
+import { Pause, Play, Save } from "lucide-react";
 import { useSurvey } from "@/lib/survey-context";
 import { formatElapsedMinutes } from "@/lib/format-duration";
+import { saveDraft } from "@/lib/draft";
 
 function computeElapsed(startTime: string, pausedAt: string | null, pausedSeconds: number): number {
   const startMs = new Date(startTime).getTime();
@@ -13,18 +14,45 @@ function computeElapsed(startTime: string, pausedAt: string | null, pausedSecond
   return Math.max(0, Math.round((nowMs - startMs - pausedSeconds * 1000 - openPauseMs) / 1000));
 }
 
+type SaveState = "idle" | "saving" | "saved" | "error";
+
 /**
  * Persistent bar showing elapsed time since the method was chosen (see
- * survey-context SET_METHOD), with a Pause/Resume control. Rendered once in
- * survey/layout.tsx so it's present across the whole m1/m2/review flow
- * without every page wiring it in individually. Renders nothing before a
- * method is picked (no startTime yet) or on the Done screen (assessment is
- * over — the timer's job is done, see submit.ts for the final tally).
+ * survey-context SET_METHOD), with a Pause/Resume control and — Round 3
+ * Task 9 — a Save draft control. Rendered once in survey/layout.tsx so it's
+ * present across the whole m1/m2/review flow without every page wiring it
+ * in individually; that's also why Save draft lives here rather than on any
+ * one page — "close the app and finish later" needs to work from wherever
+ * the surveyor happens to be mid-assessment, not just from Review. Renders
+ * nothing before a method is picked (no startTime yet) or on the Done
+ * screen (assessment is over — the timer's job is done, see submit.ts for
+ * the final tally).
  */
 export function SurveyTimerBar() {
   const pathname = usePathname();
   const { state, pauseTimer, resumeTimer } = useSurvey();
   const paused = Boolean(state.pausedAt);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const saveFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (saveFlashTimeoutRef.current) clearTimeout(saveFlashTimeoutRef.current);
+    };
+  }, []);
+
+  async function handleSaveDraft() {
+    setSaveState("saving");
+    try {
+      await saveDraft(state);
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
+    } finally {
+      if (saveFlashTimeoutRef.current) clearTimeout(saveFlashTimeoutRef.current);
+      saveFlashTimeoutRef.current = setTimeout(() => setSaveState("idle"), 2500);
+    }
+  }
   // Date.now() can't be called during render (react-hooks/purity), and
   // setState can't be called synchronously in an effect body
   // (react-hooks/set-state-in-effect) — so every read of it happens inside
@@ -64,14 +92,25 @@ export function SurveyTimerBar() {
             {formatElapsedMinutes(seconds)}
           </span>
         </span>
-        <button
-          type="button"
-          onClick={paused ? resumeTimer : pauseTimer}
-          className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2.5 py-1.5 font-semibold text-ink-soft shrink-0"
-        >
-          {paused ? <Play size={13} /> : <Pause size={13} />}
-          {paused ? "Resume" : "Pause"}
-        </button>
+        <span className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleSaveDraft}
+            disabled={saveState === "saving"}
+            className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2.5 py-1.5 font-semibold text-ink-soft disabled:opacity-60"
+          >
+            <Save size={13} />
+            {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? "Failed" : "Save draft"}
+          </button>
+          <button
+            type="button"
+            onClick={paused ? resumeTimer : pauseTimer}
+            className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2.5 py-1.5 font-semibold text-ink-soft"
+          >
+            {paused ? <Play size={13} /> : <Pause size={13} />}
+            {paused ? "Resume" : "Pause"}
+          </button>
+        </span>
       </div>
     </div>
   );

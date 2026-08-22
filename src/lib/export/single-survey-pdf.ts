@@ -1,4 +1,3 @@
-import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { CATEGORY_WEIGHT } from "@/lib/scoring";
 import { formatDurationFriendly } from "@/lib/format-duration";
@@ -44,6 +43,11 @@ const MARGIN = 40;
  * overall score + rating band, category scores, item-by-item table — the
  * "clean printable summary" 02-ui-ux-and-design-system.md asks for on the
  * Done screen, distinct from the formula-driven Excel export.
+ *
+ * Was server-only until Round 3 Task 9's pre-submission export fallback
+ * started calling this directly from the client (see single-survey-workbook.ts's
+ * header comment for why that has to happen client-side) — pdf-lib is
+ * isomorphic already, so no other change was needed to run it there.
  */
 export async function buildSingleSurveyPdf(input: SingleSurveyPdfInput): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -68,10 +72,18 @@ export async function buildSingleSurveyPdf(input: SingleSurveyPdfInput): Promise
     page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_W - MARGIN, y }, thickness: 0.5, color: BORDER });
   }
 
-  // Header
+  // Header. submittedAt is usually a real ISO timestamp, but the
+  // pre-submission draft export (Round 3 Task 9) passes a plain "not yet
+  // submitted" label instead — new Date() on that is Invalid Date, so fall
+  // back to showing the label itself rather than the string "Invalid Date".
   text("TCF Maintenance Quality Index — Survey Report", MARGIN, 16, bold, BRAND_DEEP);
   y -= 20;
-  text(`Method ${input.method} · ${new Date(input.submittedAt || Date.now()).toLocaleString()}`, MARGIN, 9, font, INK_SOFT);
+  const submittedDate = input.submittedAt ? new Date(input.submittedAt) : null;
+  const submittedLabel =
+    submittedDate && !Number.isNaN(submittedDate.getTime())
+      ? submittedDate.toLocaleString()
+      : input.submittedAt || new Date().toLocaleString();
+  text(`Method ${input.method} · ${submittedLabel}`, MARGIN, 9, font, INK_SOFT);
   y -= 18;
   line();
   y -= 18;

@@ -2,12 +2,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { ScreenShell } from "@/components/ui/ScreenShell";
 import { PendingSyncBanner } from "@/components/PendingSyncBanner";
+import { DraftsBanner } from "@/components/DraftsBanner";
 
 export default function HomePage() {
   return (
     <ScreenShell>
       <div className="flex-[0.4]" />
       <PendingSyncBanner />
+      <DraftsBanner />
       <div className="h-16 w-16 rounded-2xl bg-white border border-border flex items-center justify-center p-2 mb-5">
         <Image
           src="/tcf-logo.png"
