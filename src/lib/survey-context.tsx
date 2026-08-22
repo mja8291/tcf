@@ -9,7 +9,6 @@ import type {
   PhotoAsset,
   PowerSupply,
   School,
-  WorkCategory,
 } from "@/lib/types";
 import { UNNAMED_LOCATION_TYPES } from "@/lib/data/method2-items";
 
@@ -19,7 +18,6 @@ interface M2Current {
   name: string;
   classroomGrade?: string;
   classroomSection?: string;
-  activeWorkCategory: WorkCategory | null;
   scores: Record<string, Condition>;
   /** Multiple photos per item are allowed. Each uploads to Drive individually on attach — see PhotoAsset. */
   photos: Record<string, PhotoAsset[]>;
@@ -108,7 +106,7 @@ function removePhoto(photos: Record<string, PhotoAsset[]>, name: string, id: str
 }
 
 function emptyM2Current(floorLevel: FloorLevel): M2Current {
-  return { floorLevel, type: null, name: "", activeWorkCategory: null, scores: {}, photos: {}, notes: {} };
+  return { floorLevel, type: null, name: "", scores: {}, photos: {}, notes: {} };
 }
 
 type Action =
@@ -127,7 +125,6 @@ type Action =
   | { type: "M2_SET_LOCATION_TYPE"; floorLevel: FloorLevel; locationType: LocationType; autoName?: string }
   | { type: "M2_SET_LOCATION_NAME"; name: string }
   | { type: "M2_SET_CLASSROOM"; floorLevel: FloorLevel; grade: string; section: string }
-  | { type: "M2_OPEN_CATEGORY"; workCategory: WorkCategory }
   | { type: "M2_CURRENT_SET_SCORE"; name: string; value: Condition }
   | { type: "M2_CURRENT_ADD_PHOTO"; name: string; id: string; file: File }
   | { type: "M2_CURRENT_PHOTO_STATUS"; name: string; id: string; status: PhotoAsset["status"]; url?: string }
@@ -246,10 +243,6 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       current.name = `${action.grade} ${action.section}`;
       return { ...state, m2: { ...state.m2, current } };
     }
-    case "M2_OPEN_CATEGORY":
-      return state.m2.current
-        ? { ...state, m2: { ...state.m2, current: { ...state.m2.current, activeWorkCategory: action.workCategory } } }
-        : state;
     case "M2_CURRENT_SET_SCORE":
       return state.m2.current
         ? {
@@ -322,7 +315,6 @@ function reducer(state: SurveyState, action: Action): SurveyState {
         name: location.name,
         classroomGrade: location.classroomGrade,
         classroomSection: location.classroomSection,
-        activeWorkCategory: null,
         scores: location.scores,
         photos: location.photos,
         notes: location.notes,
@@ -388,7 +380,6 @@ interface SurveyContextValue {
   m2SetLocationType: (floorLevel: FloorLevel, locationType: LocationType, autoName?: string) => void;
   m2SetLocationName: (name: string) => void;
   m2SetClassroom: (floorLevel: FloorLevel, grade: string, section: string) => void;
-  m2OpenCategory: (workCategory: WorkCategory) => void;
   m2CurrentSetScore: (name: string, value: Condition) => void;
   m2CurrentAddPhoto: (name: string, id: string, file: File) => void;
   m2CurrentSetPhotoStatus: (name: string, id: string, status: PhotoAsset["status"], url?: string) => void;
@@ -427,7 +418,6 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
         dispatch({ type: "M2_SET_LOCATION_TYPE", floorLevel, locationType, autoName }),
       m2SetLocationName: (name) => dispatch({ type: "M2_SET_LOCATION_NAME", name }),
       m2SetClassroom: (floorLevel, grade, section) => dispatch({ type: "M2_SET_CLASSROOM", floorLevel, grade, section }),
-      m2OpenCategory: (workCategory) => dispatch({ type: "M2_OPEN_CATEGORY", workCategory }),
       m2CurrentSetScore: (name, value) => dispatch({ type: "M2_CURRENT_SET_SCORE", name, value }),
       m2CurrentAddPhoto: (name, id, file) => dispatch({ type: "M2_CURRENT_ADD_PHOTO", name, id, file }),
       m2CurrentSetPhotoStatus: (name, id, status, url) =>

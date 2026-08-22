@@ -2,18 +2,57 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check } from "lucide-react";
 import { ScreenShell } from "@/components/ui/ScreenShell";
 import { TopBar } from "@/components/ui/TopBar";
+import { AccordionSection } from "@/components/ui/AccordionSection";
+import { ItemRow } from "@/components/ui/ItemRow";
 import { Button } from "@/components/ui/Button";
 import { BottomBar } from "@/components/ui/BottomBar";
 import { useSurvey } from "@/lib/survey-context";
-import { WORK_CATEGORIES, method2GroupsForLocationAndCategory, workCategoryCountsForLocation } from "@/lib/data/method2-items";
+import { usePhotoUploadHandlers } from "@/lib/use-photo-upload-handlers";
+import {
+  WORK_CATEGORIES,
+  method2GroupsForLocationAndCategory,
+  workCategoryCountsForLocation,
+} from "@/lib/data/method2-items";
+import type { WorkCategory } from "@/lib/types";
 
+/**
+ * Method 2's work-category picker and per-category item-scoring page,
+ * merged into one accordion (Round 3 Task 11) — the old m2/score route is
+ * gone; this is now the only screen for scoring a location. Sections
+ * collapsed by default, one open at a time.
+ *
+ * Satisfies Task 13 together with this: m2/page.tsx's "Locations recorded"
+ * list already links a finalized location back here via m2ResumeLocation
+ * (unchanged) — that now lands on this single accordion with everything
+ * pre-filled and editable, instead of a separate work-category picker, so
+ * editing an earlier location's category is just tapping its header.
+ */
 export default function Method2CategoryPage() {
   const router = useRouter();
-  const { state, m2OpenCategory, m2FinalizeCurrent } = useSurvey();
+  const {
+    state,
+    m2CurrentSetScore,
+    m2CurrentAddPhoto,
+    m2CurrentSetPhotoStatus,
+    m2CurrentRemovePhoto,
+    m2CurrentSetNote,
+    m2FinalizeCurrent,
+  } = useSurvey();
   const current = state.m2.current;
+  const { handleAddPhoto, handleRetryPhoto, handleRemovePhoto } = usePhotoUploadHandlers({
+    surveyId: state.surveyId,
+    region: state.school?.region ?? "",
+    campusName: state.school?.name ?? "",
+    floorLevel: current?.floorLevel,
+    locationType: current?.type ?? undefined,
+    locationName: current?.name,
+    addPhoto: m2CurrentAddPhoto,
+    setPhotoStatus: m2CurrentSetPhotoStatus,
+    removePhoto: m2CurrentRemovePhoto,
+  });
+  const [openCategory, setOpenCategory] = useState<WorkCategory | null>(null);
   const [attemptedSave, setAttemptedSave] = useState(false);
 
   // Mount-only: goBack() below deliberately clears `current` as part of
@@ -32,7 +71,7 @@ export default function Method2CategoryPage() {
   const categoryStatus = applicableCategories.map((wc) => {
     const items = method2GroupsForLocationAndCategory(type, wc);
     const answered = items.filter((i) => current!.scores[i.name]).length;
-    return { wc, answered, total: items.length, complete: answered === items.length };
+    return { wc, items, answered, total: items.length, complete: answered === items.length };
   });
   const incomplete = categoryStatus.filter((c) => !c.complete);
   const allComplete = incomplete.length === 0;
@@ -43,25 +82,26 @@ export default function Method2CategoryPage() {
   }
 
   // Unrestricted — always saves whatever's been scored so far and leaves.
-  // Deliberately not gated on completeness (see BottomBar's "Save location
-  // and return" below for the validated equivalent).
+  // Deliberately not gated on completeness (see BottomBar's "Save Selection
+  // and Return" below for the validated equivalent).
   function goBack() {
     m2FinalizeCurrent();
     router.push(targetRoute());
   }
 
-  function saveLocationAndReturn() {
+  function saveSelectionAndReturn() {
     if (allComplete) {
       m2FinalizeCurrent();
       router.push(targetRoute());
-    } else {
-      setAttemptedSave(true);
+      return;
     }
-  }
-
-  function openCategory(workCategory: (typeof WORK_CATEGORIES)[number]) {
-    m2OpenCategory(workCategory);
-    router.push("/survey/m2/score");
+    // Incomplete: stay put, mark every unscored item pending, and jump to
+    // the first work category that still has one, same reasoning as
+    // Method 1's equivalent — a pending marker inside a collapsed section
+    // is invisible otherwise.
+    setAttemptedSave(true);
+    const firstIncomplete = categoryStatus.find((c) => !c.complete);
+    if (firstIncomplete) setOpenCategory(firstIncomplete.wc);
   }
 
   return (
@@ -71,38 +111,38 @@ export default function Method2CategoryPage() {
         {current.floorLevel} — {type} — {current.name}
       </div>
 
-      {categoryStatus.map(({ wc, answered, total, complete }) => (
-        <button
+      {categoryStatus.map(({ wc, items, answered, total }) => (
+        <AccordionSection
           key={wc}
-          type="button"
-          onClick={() => openCategory(wc)}
-          className="w-full text-left rounded-2xl border border-border bg-card p-4 mb-3 flex items-center gap-3.5"
+          title={wc}
+          answered={answered}
+          total={total}
+          open={openCategory === wc}
+          onToggle={() => setOpenCategory((prev) => (prev === wc ? null : wc))}
+          pending={attemptedSave && answered < total}
         >
-          <div className="h-11 w-11 rounded-xl bg-brand-tint flex items-center justify-center shrink-0">
-            {complete ? <Check size={20} className="text-brand-deep" /> : null}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[15px] font-semibold text-ink">
-              {wc}
-              {attemptedSave && !complete ? (
-                <span
-                  className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-band-poor-tint align-middle text-[10.5px] font-bold text-band-poor"
-                  aria-label="Still has unscored items"
-                >
-                  *
-                </span>
-              ) : null}
-            </div>
-            <div className="text-[12px] text-ink-faint">
-              {answered} of {total} scored
-            </div>
-          </div>
-        </button>
+          {items.map((item) => (
+            <ItemRow
+              key={item.name}
+              item={item}
+              worstCase={item.aggregation === "worst"}
+              value={current!.scores[item.name]}
+              photos={current!.photos[item.name] ?? []}
+              note={current!.notes[item.name]}
+              onScoreChange={(v) => m2CurrentSetScore(item.name, v)}
+              onAddPhoto={(f) => handleAddPhoto(item.name, f)}
+              onRemovePhoto={(id) => handleRemovePhoto(item.name, id)}
+              onRetryPhoto={(id, f) => handleRetryPhoto(item.name, id, f)}
+              onNoteChange={(v) => m2CurrentSetNote(item.name, v)}
+              pending={attemptedSave && !current!.scores[item.name]}
+            />
+          ))}
+        </AccordionSection>
       ))}
 
       <BottomBar>
-        <Button variant={allComplete ? "primary" : "muted"} onClick={saveLocationAndReturn}>
-          Save location and return
+        <Button variant={allComplete ? "primary" : "muted"} onClick={saveSelectionAndReturn}>
+          Save Selection and Return
         </Button>
         {attemptedSave && !allComplete ? (
           <p className="text-center text-[11.5px] text-band-poor mt-2.5">
