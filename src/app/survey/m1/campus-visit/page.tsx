@@ -151,7 +151,7 @@ function CampusVisitPhotoRow({
   onRemove: (id: string) => void;
   onRetry: (id: string, file: File) => void;
 }) {
-  const { compressing, handlePick } = usePhotoAttachHandler(onAdd);
+  const { compressing, error: photoError, handlePick } = usePhotoAttachHandler(onAdd);
   return (
     <div
       id={itemAnchorId(itemName)}
@@ -162,6 +162,7 @@ function CampusVisitPhotoRow({
       <div className="flex-1 min-w-0 px-1">
         <span className="block truncate text-[12.5px] text-ink">{itemName}</span>
         {compressing ? <div className="text-[10.5px] text-ink-faint mt-0.5">Compressing photo…</div> : null}
+        {photoError ? <div className="text-[10.5px] text-band-poor mt-0.5">{photoError}</div> : null}
         <PhotoThumbList photos={photos} onRemovePhoto={onRemove} onRetryPhoto={onRetry} />
       </div>
       <PhotoAttachButtons itemKey={itemName} photoCount={photos.length} compressing={compressing} onPick={handlePick} />

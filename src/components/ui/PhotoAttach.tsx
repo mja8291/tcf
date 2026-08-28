@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { Camera, Image as ImageIcon, RotateCw, X } from "lucide-react";
-import { compressImage } from "@/lib/image/compress";
+import { compressImage, UnprocessablePhotoError } from "@/lib/image/compress";
 import type { PhotoAsset } from "@/lib/types";
 import { IconButton } from "./IconButton";
 
@@ -20,22 +20,34 @@ import { IconButton } from "./IconButton";
  * upload (Round 3 Task 8) happens in the page-level onAddPhoto callback,
  * which is why this hook only ever sees a plain File in and out — it has
  * no notion of upload status.
+ *
+ * compressImage can throw UnprocessablePhotoError for a file it can't
+ * decode by any method and that's too large to safely upload raw — that
+ * surfaces here as `error` rather than a photo silently never appearing.
  */
 export function usePhotoAttachHandler(onAddPhoto: (file: File) => void) {
   const [compressing, setCompressing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const handlePick = useCallback(
     async (file: File | undefined) => {
       if (!file) return;
       setCompressing(true);
+      setError(null);
       try {
         onAddPhoto(await compressImage(file));
+      } catch (err) {
+        setError(
+          err instanceof UnprocessablePhotoError
+            ? err.message
+            : "This photo couldn't be processed. Try again or pick a different photo."
+        );
       } finally {
         setCompressing(false);
       }
     },
     [onAddPhoto]
   );
-  return { compressing, handlePick };
+  return { compressing, error, handlePick };
 }
 
 interface PhotoAttachButtonsProps {
