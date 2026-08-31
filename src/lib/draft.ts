@@ -29,9 +29,16 @@ function settlePhotos(photos: Record<string, PhotoAsset[]>): Record<string, Phot
  * this is a mid-progress save, not a "return to method selection" action,
  * so the timer keeps running exactly as it was.
  */
-export async function saveDraft(state: SurveyState): Promise<number> {
+export async function saveDraft(state: SurveyState): Promise<void> {
   if (!state.school || !state.method) {
     throw new Error("Can't save a draft before a school and method are chosen");
+  }
+  // surveyId is minted alongside method (SET_METHOD) and survives LOAD_DRAFT
+  // on resume, so it's already the stable identity for "this one assessment
+  // attempt" — reusing it as the drafts-store key is what makes a repeat
+  // Save draft tap overwrite the same record instead of forking a new one.
+  if (!state.surveyId) {
+    throw new Error("Can't save a draft without a survey id");
   }
   const snapshot: SurveyState = {
     ...state,
@@ -41,12 +48,12 @@ export async function saveDraft(state: SurveyState): Promise<number> {
       current: state.m2.current ? { ...state.m2.current, photos: settlePhotos(state.m2.current.photos) } : null,
     },
   };
-  const id = await saveDraftToDb({
+  await saveDraftToDb({
+    surveyId: state.surveyId,
     savedAt: new Date().toISOString(),
     schoolName: state.school.name,
     method: state.method,
     state: snapshot,
   });
   notifyChanged();
-  return id;
 }

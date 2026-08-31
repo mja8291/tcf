@@ -40,8 +40,8 @@ export function DraftsBanner() {
 
   if (drafts.length === 0) return null;
 
-  async function discard(id: number) {
-    await deleteDraft(id);
+  async function discard(surveyId: string) {
+    await deleteDraft(surveyId);
     refresh();
   }
 
@@ -52,11 +52,11 @@ export function DraftsBanner() {
       </div>
       <div className="divide-y divide-border">
         {drafts.map((d) => (
-          <div key={d.id} className="flex items-center gap-2.5 px-3.5 py-2.5">
+          <div key={d.surveyId} className="flex items-center gap-2.5 px-3.5 py-2.5">
             <FileClock size={16} className="text-ink-faint shrink-0" />
             <button
               type="button"
-              onClick={() => router.push(`/survey/resume?id=${d.id}`)}
+              onClick={() => router.push(`/survey/resume?id=${encodeURIComponent(d.surveyId)}`)}
               className="flex-1 min-w-0 text-left"
             >
               <div className="text-[13px] font-medium text-ink truncate">{d.schoolName}</div>
@@ -66,7 +66,7 @@ export function DraftsBanner() {
             </button>
             <button
               type="button"
-              onClick={() => discard(d.id)}
+              onClick={() => discard(d.surveyId)}
               aria-label={`Discard draft for ${d.schoolName}`}
               className="shrink-0 h-8 w-8 flex items-center justify-center text-ink-faint"
             >

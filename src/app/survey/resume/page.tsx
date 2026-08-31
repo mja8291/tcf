@@ -19,11 +19,11 @@ import { DRAFTS_CHANGED_EVENT } from "@/lib/draft";
 function ResumeContent() {
   const router = useRouter();
   const { loadDraft } = useSurvey();
-  const id = Number(useSearchParams().get("id"));
+  const id = useSearchParams().get("id");
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (!Number.isFinite(id)) {
+    if (!id) {
       router.replace("/");
       return;
     }

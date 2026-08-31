@@ -5,11 +5,13 @@ import type { Submission } from "@/lib/submit";
 import type { SurveyState } from "@/lib/survey-context";
 
 const DB_NAME = "mqi-offline";
-// v2 adds DRAFTS_STORE (Round 3 Task 9) — onupgradeneeded fires with the
-// existing stores already present when bumping the version, so the
-// pre-existing guarded creates below just no-op and only the new store
-// gets added; nothing here needs to migrate v1 data.
-const DB_VERSION = 2;
+// v3 rekeys DRAFTS_STORE from an autoIncrement id to surveyId (see below) —
+// onupgradeneeded deletes and recreates just that store; the existing
+// guarded creates for the other stores no-op as before. Any drafts saved
+// under v2's numbering are dropped in the process, which is an acceptable
+// one-time cost: they're local-only, unsynced, and the bug this fixes was
+// already leaving them duplicated and unreliable to resume from.
+const DB_VERSION = 3;
 const SCHOOLS_STORE = "schoolsCache";
 const SUBMISSIONS_STORE = "pendingSubmissions";
 const DRAFTS_STORE = "drafts";
@@ -27,9 +29,18 @@ export interface QueuedSubmission extends Submission {
  * IndexedDB's structured clone handles the File objects inside its photo
  * maps natively (unlike JSON), same as QueuedSubmission relied on before
  * Task 8 made submissions File-free.
+ *
+ * Keyed by `surveyId` (minted once in survey-context's SET_METHOD and
+ * carried through LOAD_DRAFT on resume) rather than an autoIncrement id —
+ * tapping "Save draft" repeatedly during the same assessment must update
+ * that one record in place, not fork a new row every time. An autoIncrement
+ * key did exactly that: every save silently left behind another stale,
+ * out-of-date copy of the same in-progress survey, which is what made
+ * saving feel unreliable — resuming could grab an older duplicate instead
+ * of the latest save.
  */
 export interface SurveyDraft {
-  id: number;
+  surveyId: string;
   savedAt: string;
   schoolName: string;
   method: 1 | 2;
@@ -51,9 +62,13 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(SUBMISSIONS_STORE)) {
         db.createObjectStore(SUBMISSIONS_STORE, { keyPath: "id", autoIncrement: true });
       }
-      if (!db.objectStoreNames.contains(DRAFTS_STORE)) {
-        db.createObjectStore(DRAFTS_STORE, { keyPath: "id", autoIncrement: true });
+      // Rekeying (v2 -> v3, see DB_VERSION above) means dropping and
+      // recreating this one store even though it already exists, since an
+      // object store's keyPath can't be changed in place.
+      if (db.objectStoreNames.contains(DRAFTS_STORE)) {
+        db.deleteObjectStore(DRAFTS_STORE);
       }
+      db.createObjectStore(DRAFTS_STORE, { keyPath: "surveyId" });
     };
     req.onsuccess = () => {
       const db = req.result;
@@ -133,11 +148,15 @@ export async function countPendingSubmissions(): Promise<number> {
   return promisify(tx.objectStore(SUBMISSIONS_STORE).count());
 }
 
-export async function saveDraft(draft: Omit<SurveyDraft, "id">): Promise<number> {
+/** put(), not add() — a second save for the same surveyId must overwrite the first, not fork a duplicate row. See SurveyDraft's doc comment. */
+export async function saveDraft(draft: SurveyDraft): Promise<void> {
   const db = await openDB();
   const tx = db.transaction(DRAFTS_STORE, "readwrite");
-  const id = await promisify(tx.objectStore(DRAFTS_STORE).add(draft));
-  return id as number;
+  tx.objectStore(DRAFTS_STORE).put(draft);
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 /** Newest-first — the most recently saved draft is the one someone's most likely reopening the app to resume. */
@@ -148,17 +167,17 @@ export async function getDrafts(): Promise<SurveyDraft[]> {
   return all.sort((a, b) => b.savedAt.localeCompare(a.savedAt));
 }
 
-export async function getDraft(id: number): Promise<SurveyDraft | null> {
+export async function getDraft(surveyId: string): Promise<SurveyDraft | null> {
   const db = await openDB();
   const tx = db.transaction(DRAFTS_STORE, "readonly");
-  const result = await promisify<SurveyDraft | undefined>(tx.objectStore(DRAFTS_STORE).get(id));
+  const result = await promisify<SurveyDraft | undefined>(tx.objectStore(DRAFTS_STORE).get(surveyId));
   return result ?? null;
 }
 
-export async function deleteDraft(id: number): Promise<void> {
+export async function deleteDraft(surveyId: string): Promise<void> {
   const db = await openDB();
   const tx = db.transaction(DRAFTS_STORE, "readwrite");
-  tx.objectStore(DRAFTS_STORE).delete(id);
+  tx.objectStore(DRAFTS_STORE).delete(surveyId);
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);

@@ -55,12 +55,20 @@
   box-sizing: border-box;
 }
 
-html,
-body {
+html {
   height: 100%;
 }
 
 body {
+  /* min-height, not height: body is `flex flex-col` (see layout.tsx), and a
+     column flex container's children get flex-shrunk to fit an exact height
+     — a hard `height: 100%` here capped body at one viewport, silently
+     clipping (with no scrollbar) any page taller than the screen. Every
+     survey scoring page can exceed one viewport once an accordion section
+     is open, so this was cutting off and making unreachable most items in
+     any section beyond the first couple. min-height keeps the "at least a
+     full screen" behavior short pages want, without capping taller ones. */
+  min-height: 100%;
   background: var(--surface);
   color: var(--ink);
   font-family: var(--font-body);
