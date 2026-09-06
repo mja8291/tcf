@@ -53,6 +53,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, url, persisted: true });
   } catch (err) {
     console.error("Photo upload to Drive failed:", err);
-    return NextResponse.json({ error: "Upload to Drive failed" }, { status: 502 });
+    // A generic "Upload to Drive failed" hides two very different problems
+    // behind the same message: a transient blip (worth retrying as-is) vs.
+    // the uploading Google account's Drive storage being full (retrying
+    // changes nothing until someone frees space or the app is repointed at
+    // a different account — hit in production 2026-09, see memory). Surface
+    // the quota case by name so it's diagnosable from the field without a
+    // debugging session, instead of looking identical to a flaky network.
+    const reason = driveErrorReason(err);
+    const message =
+      reason === "storageQuotaExceeded"
+        ? "Photo storage is full — contact the app administrator. Retrying won't help until space is freed."
+        : "Upload to Drive failed";
+    return NextResponse.json({ error: message, reason }, { status: 502 });
   }
+}
+
+/** Pulls Google API's machine-readable error reason (e.g. "storageQuotaExceeded") out of a googleapis client error, if present. */
+function driveErrorReason(err: unknown): string | undefined {
+  if (typeof err !== "object" || err === null) return undefined;
+  const response = (err as { response?: { data?: unknown } }).response;
+  const data = response?.data as { error?: { errors?: { reason?: string }[] } } | undefined;
+  return data?.error?.errors?.[0]?.reason;
 }

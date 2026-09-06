@@ -84,6 +84,8 @@ export interface PhotoAsset {
   status: "uploading" | "uploaded" | "error";
   /** Set once status is "uploaded" — the Drive webViewLink. */
   url?: string;
+  /** Set on "error" when the server identified a specific, user-actionable cause (e.g. Drive storage full) rather than a generic network hiccup — shown instead of the default "Couldn't upload" text. */
+  errorMessage?: string;
 }
 
 export interface Method2Location {

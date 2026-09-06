@@ -17,7 +17,7 @@ interface UsePhotoUploadHandlersParams {
   locationType?: string;
   locationName?: string;
   addPhoto: (itemName: string, id: string, file: File) => void;
-  setPhotoStatus: (itemName: string, id: string, status: PhotoAsset["status"], url?: string) => void;
+  setPhotoStatus: (itemName: string, id: string, status: PhotoAsset["status"], url?: string, errorMessage?: string) => void;
   removePhoto: (itemName: string, id: string) => void;
 }
 
@@ -56,7 +56,9 @@ export function usePhotoUploadHandlers({
       const location = floorLevel && locationType && locationName ? { floorLevel, type: locationType, name: locationName } : undefined;
       uploadPhoto({ surveyId, region, campusName, itemName, location, file })
         .then(({ url }) => setPhotoStatus(itemName, id, "uploaded", url))
-        .catch(() => setPhotoStatus(itemName, id, "error"));
+        .catch((err: unknown) =>
+          setPhotoStatus(itemName, id, "error", undefined, err instanceof Error ? err.message : undefined)
+        );
     },
     [surveyId, region, campusName, floorLevel, locationType, locationName, setPhotoStatus]
   );

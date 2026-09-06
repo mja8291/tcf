@@ -1,11 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Pause, Play, Save } from "lucide-react";
 import { useSurvey } from "@/lib/survey-context";
 import { formatElapsedMinutes } from "@/lib/format-duration";
 import { saveDraft } from "@/lib/draft";
+
+// Round 3 Task 9 shipped "Save draft" as a manual button only. That's the bug
+// a real user hit: state lives purely in memory (useReducer) until someone
+// taps Save, so anything that takes the tab away without warning — an
+// incoming phone call backgrounding the browser, the OS reclaiming a
+// backgrounded tab's memory, the phone just dying — loses every unsaved
+// answer. Autosave below fixes that two ways:
+//   1. A debounce so an in-progress burst of edits (ticking through items,
+//      typing a note) settles to a save shortly after activity pauses,
+//      without writing to IndexedDB on literally every keystroke.
+//   2. A hard cap so someone who *never* pauses (a long note typed
+//      continuously) still gets saved periodically instead of the debounce
+//      resetting forever.
+// Neither of those fires *during* a sudden interruption, though — the
+// debounce timer is still waiting when the call comes in. That's what the
+// visibilitychange/pagehide flush is for: the moment the tab is backgrounded
+// or unloaded, whatever's pending is written immediately, best-effort.
+const AUTOSAVE_DEBOUNCE_MS = 2000;
+const AUTOSAVE_MAX_WAIT_MS = 12000;
 
 function computeElapsed(startTime: string, pausedAt: string | null, pausedSeconds: number): number {
   const startMs = new Date(startTime).getTime();
@@ -41,18 +60,83 @@ export function SurveyTimerBar() {
     };
   }, []);
 
-  async function handleSaveDraft() {
+  // Always the latest state, read from timers/listeners that are set up
+  // once and shouldn't need to be torn down and rebuilt on every keystroke
+  // just to close over a fresh `state`.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const maxWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savingRef = useRef(false);
+
+  const runSave = useCallback(async () => {
+    const s = stateRef.current;
+    if (!s.school || !s.method || !s.surveyId) return; // nothing to save yet
+    if (savingRef.current) return; // a save is already in flight — it'll pick up this state or the next debounce will
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    if (maxWaitTimerRef.current) {
+      clearTimeout(maxWaitTimerRef.current);
+      maxWaitTimerRef.current = null;
+    }
+    savingRef.current = true;
     setSaveState("saving");
     try {
-      await saveDraft(state);
+      await saveDraft(s);
       setSaveState("saved");
     } catch {
       setSaveState("error");
     } finally {
+      savingRef.current = false;
       if (saveFlashTimeoutRef.current) clearTimeout(saveFlashTimeoutRef.current);
       saveFlashTimeoutRef.current = setTimeout(() => setSaveState("idle"), 2500);
     }
-  }
+  }, []);
+
+  const handleSaveDraft = runSave;
+
+  // Debounced autosave: any survey action reschedules the debounce timer, so
+  // a save fires ~2s after activity settles. The max-wait timer is only
+  // (re)armed when it isn't already pending, so continuous edits still force
+  // a save at least every AUTOSAVE_MAX_WAIT_MS instead of the debounce
+  // resetting indefinitely.
+  useEffect(() => {
+    if (!state.school || !state.method || !state.surveyId) return;
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => void runSave(), AUTOSAVE_DEBOUNCE_MS);
+    if (!maxWaitTimerRef.current) {
+      maxWaitTimerRef.current = setTimeout(() => void runSave(), AUTOSAVE_MAX_WAIT_MS);
+    }
+  }, [state, runSave]);
+
+  // Safety net for a sudden interruption (incoming call, switching apps,
+  // closing the tab) — flush immediately instead of waiting on the debounce.
+  // visibilitychange fires reliably when a mobile browser is backgrounded
+  // (the phone-call case), which pagehide alone would miss since the tab
+  // isn't actually being unloaded.
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.visibilityState === "hidden") void runSave();
+    }
+    function onPageHide() {
+      void runSave();
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [runSave]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (maxWaitTimerRef.current) clearTimeout(maxWaitTimerRef.current);
+    };
+  }, []);
   // Date.now() can't be called during render (react-hooks/purity), and
   // setState can't be called synchronously in an effect body
   // (react-hooks/set-state-in-effect) — so every read of it happens inside

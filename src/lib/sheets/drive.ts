@@ -11,9 +11,16 @@ async function findOrCreateFolder(name: string, parentId: string): Promise<strin
 
   const drive = await getDriveClient();
   const escaped = name.replace(/'/g, "\\'");
+  // supportsAllDrives + includeItemsFromAllDrives: without both, a query
+  // whose parent lives in a Shared Drive silently returns zero results
+  // instead of erroring — see MQI_PHOTOS_DRIVE_FOLDER_ID's move to a Shared
+  // Drive (2026-09-05). Harmless no-ops for a plain My Drive folder, so
+  // there's no need to branch on which kind of parent this is.
   const list = await drive.files.list({
     q: `'${parentId}' in parents and name = '${escaped}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
     fields: "files(id, name)",
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
   });
   const existing = list.data.files?.[0]?.id;
   if (existing) {
@@ -24,6 +31,7 @@ async function findOrCreateFolder(name: string, parentId: string): Promise<strin
   const created = await drive.files.create({
     requestBody: { name, mimeType: "application/vnd.google-apps.folder", parents: [parentId] },
     fields: "id",
+    supportsAllDrives: true,
   });
   const id = created.data.id!;
   folderCache.set(cacheKey, id);
@@ -105,6 +113,7 @@ export async function uploadSurveyPhoto(params: {
     requestBody: { name: filename, parents: [leafFolder] },
     media: { mimeType: params.mimeType, body: Readable.from(params.buffer) },
     fields: "id, webViewLink",
+    supportsAllDrives: true,
   });
 
   return res.data.webViewLink ?? `https://drive.google.com/file/d/${res.data.id}/view`;

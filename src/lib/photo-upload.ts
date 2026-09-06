@@ -38,7 +38,16 @@ export async function uploadPhoto({
   }
 
   const res = await fetch("/api/photos/upload", { method: "POST", body: formData });
-  if (!res.ok) throw new Error(`Photo upload failed: ${res.status}`);
+  if (!res.ok) {
+    // The route includes a specific, user-facing message for known causes
+    // (e.g. Drive storage full) — fall back to a generic one for anything
+    // else (network error, an unparseable/non-JSON response, etc.).
+    const message = await res
+      .json()
+      .then((d) => (typeof d?.error === "string" ? d.error : undefined))
+      .catch(() => undefined);
+    throw new Error(message ?? `Photo upload failed: ${res.status}`);
+  }
   const data = await res.json();
   // url is absent when Google isn't configured yet (local dev without
   // credentials) — the route still responds ok so the app stays clickable,

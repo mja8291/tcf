@@ -146,7 +146,9 @@ export function PhotoThumbList({ photos, onRemovePhoto, onRetryPhoto }: PhotoThu
           <span className="truncate">
             {p.file.name} ({(p.file.size / 1024).toFixed(0)} KB)
             {p.status === "uploading" ? <span className="text-ink-faint"> · Uploading…</span> : null}
-            {p.status === "error" ? <span className="text-band-poor"> · Couldn&apos;t upload</span> : null}
+            {p.status === "error" ? (
+              <span className="text-band-poor"> · {p.errorMessage || "Couldn't upload"}</span>
+            ) : null}
           </span>
           <span className="flex items-center gap-1.5 shrink-0">
             {p.status === "error" && onRetryPhoto ? (

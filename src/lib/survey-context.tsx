@@ -94,11 +94,14 @@ function setPhotoStatus(
   name: string,
   id: string,
   status: PhotoAsset["status"],
-  url?: string
+  url?: string,
+  errorMessage?: string
 ): Record<string, PhotoAsset[]> {
   return {
     ...photos,
-    [name]: (photos[name] ?? []).map((p) => (p.id === id ? { ...p, status, url: url ?? p.url } : p)),
+    [name]: (photos[name] ?? []).map((p) =>
+      p.id === id ? { ...p, status, url: url ?? p.url, errorMessage: status === "error" ? errorMessage : undefined } : p
+    ),
   };
 }
 function removePhoto(photos: Record<string, PhotoAsset[]>, name: string, id: string): Record<string, PhotoAsset[]> {
@@ -118,7 +121,7 @@ type Action =
   | { type: "SET_LAST_SURVEY_ID"; surveyId: string | null }
   | { type: "M1_SET_SCORE"; name: string; value: Condition }
   | { type: "M1_ADD_PHOTO"; name: string; id: string; file: File }
-  | { type: "M1_PHOTO_STATUS"; name: string; id: string; status: PhotoAsset["status"]; url?: string }
+  | { type: "M1_PHOTO_STATUS"; name: string; id: string; status: PhotoAsset["status"]; url?: string; errorMessage?: string }
   | { type: "M1_REMOVE_PHOTO"; name: string; id: string }
   | { type: "M1_SET_NOTE"; name: string; value: string }
   | { type: "M2_SET_FLOOR"; floorLevel: FloorLevel; autoName?: string }
@@ -127,7 +130,7 @@ type Action =
   | { type: "M2_SET_CLASSROOM"; floorLevel: FloorLevel; grade: string; section: string }
   | { type: "M2_CURRENT_SET_SCORE"; name: string; value: Condition }
   | { type: "M2_CURRENT_ADD_PHOTO"; name: string; id: string; file: File }
-  | { type: "M2_CURRENT_PHOTO_STATUS"; name: string; id: string; status: PhotoAsset["status"]; url?: string }
+  | { type: "M2_CURRENT_PHOTO_STATUS"; name: string; id: string; status: PhotoAsset["status"]; url?: string; errorMessage?: string }
   | { type: "M2_CURRENT_REMOVE_PHOTO"; name: string; id: string }
   | { type: "M2_CURRENT_SET_NOTE"; name: string; value: string }
   | { type: "M2_FINALIZE_CURRENT" }
@@ -202,7 +205,7 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       return { ...state, m1: { ...state.m1, photos } };
     }
     case "M1_PHOTO_STATUS": {
-      const photos = setPhotoStatus(state.m1.photos, action.name, action.id, action.status, action.url);
+      const photos = setPhotoStatus(state.m1.photos, action.name, action.id, action.status, action.url, action.errorMessage);
       return { ...state, m1: { ...state.m1, photos } };
     }
     case "M1_REMOVE_PHOTO": {
@@ -264,7 +267,14 @@ function reducer(state: SurveyState, action: Action): SurveyState {
     }
     case "M2_CURRENT_PHOTO_STATUS": {
       if (!state.m2.current) return state;
-      const photos = setPhotoStatus(state.m2.current.photos, action.name, action.id, action.status, action.url);
+      const photos = setPhotoStatus(
+        state.m2.current.photos,
+        action.name,
+        action.id,
+        action.status,
+        action.url,
+        action.errorMessage
+      );
       return { ...state, m2: { ...state.m2, current: { ...state.m2.current, photos } } };
     }
     case "M2_CURRENT_REMOVE_PHOTO": {
@@ -373,7 +383,7 @@ interface SurveyContextValue {
   setLastSurveyId: (surveyId: string | null) => void;
   m1SetScore: (name: string, value: Condition) => void;
   m1AddPhoto: (name: string, id: string, file: File) => void;
-  m1SetPhotoStatus: (name: string, id: string, status: PhotoAsset["status"], url?: string) => void;
+  m1SetPhotoStatus: (name: string, id: string, status: PhotoAsset["status"], url?: string, errorMessage?: string) => void;
   m1RemovePhoto: (name: string, id: string) => void;
   m1SetNote: (name: string, value: string) => void;
   m2SetFloor: (floorLevel: FloorLevel, autoName?: string) => void;
@@ -382,7 +392,13 @@ interface SurveyContextValue {
   m2SetClassroom: (floorLevel: FloorLevel, grade: string, section: string) => void;
   m2CurrentSetScore: (name: string, value: Condition) => void;
   m2CurrentAddPhoto: (name: string, id: string, file: File) => void;
-  m2CurrentSetPhotoStatus: (name: string, id: string, status: PhotoAsset["status"], url?: string) => void;
+  m2CurrentSetPhotoStatus: (
+    name: string,
+    id: string,
+    status: PhotoAsset["status"],
+    url?: string,
+    errorMessage?: string
+  ) => void;
   m2CurrentRemovePhoto: (name: string, id: string) => void;
   m2CurrentSetNote: (name: string, value: string) => void;
   m2FinalizeCurrent: () => void;
@@ -410,7 +426,8 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       setLastSurveyId: (surveyId) => dispatch({ type: "SET_LAST_SURVEY_ID", surveyId }),
       m1SetScore: (name, value) => dispatch({ type: "M1_SET_SCORE", name, value }),
       m1AddPhoto: (name, id, file) => dispatch({ type: "M1_ADD_PHOTO", name, id, file }),
-      m1SetPhotoStatus: (name, id, status, url) => dispatch({ type: "M1_PHOTO_STATUS", name, id, status, url }),
+      m1SetPhotoStatus: (name, id, status, url, errorMessage) =>
+        dispatch({ type: "M1_PHOTO_STATUS", name, id, status, url, errorMessage }),
       m1RemovePhoto: (name, id) => dispatch({ type: "M1_REMOVE_PHOTO", name, id }),
       m1SetNote: (name, value) => dispatch({ type: "M1_SET_NOTE", name, value }),
       m2SetFloor: (floorLevel, autoName) => dispatch({ type: "M2_SET_FLOOR", floorLevel, autoName }),
@@ -420,8 +437,8 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       m2SetClassroom: (floorLevel, grade, section) => dispatch({ type: "M2_SET_CLASSROOM", floorLevel, grade, section }),
       m2CurrentSetScore: (name, value) => dispatch({ type: "M2_CURRENT_SET_SCORE", name, value }),
       m2CurrentAddPhoto: (name, id, file) => dispatch({ type: "M2_CURRENT_ADD_PHOTO", name, id, file }),
-      m2CurrentSetPhotoStatus: (name, id, status, url) =>
-        dispatch({ type: "M2_CURRENT_PHOTO_STATUS", name, id, status, url }),
+      m2CurrentSetPhotoStatus: (name, id, status, url, errorMessage) =>
+        dispatch({ type: "M2_CURRENT_PHOTO_STATUS", name, id, status, url, errorMessage }),
       m2CurrentRemovePhoto: (name, id) => dispatch({ type: "M2_CURRENT_REMOVE_PHOTO", name, id }),
       m2CurrentSetNote: (name, value) => dispatch({ type: "M2_CURRENT_SET_NOTE", name, value }),
       m2FinalizeCurrent: () => dispatch({ type: "M2_FINALIZE_CURRENT" }),

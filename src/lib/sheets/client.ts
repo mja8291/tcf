@@ -95,14 +95,28 @@ export async function getSheetsClient() {
  * the acting identity to have its own storage quota, and a service account
  * (impersonated or not) has none against a normal "My Drive" folder —
  * Google returns 403 "Service Accounts do not have storage quota" even
- * when the folder is shared as Editor (confirmed 2026-08-11 testing photo
- * uploads). OAuth-as-a-human does have real quota, so Drive always uses
- * that fallback path directly. This restriction goes away once
- * MQI_PHOTOS_DRIVE_FOLDER_ID points at a Shared Drive instead of a folder
- * in someone's My Drive — Shared Drives have org-pooled quota that isn't
- * tied to any one identity — at which point Drive could move to Workload
- * Identity too. See chat notes; this needs a decision from Junaid on
- * whether TCF's Workspace plan has Shared Drives available.
+ * when the folder is shared as Editor (confirmed 2026-08-11). OAuth-as-a-human
+ * has real quota, but that just traded one failure mode for another — it
+ * ties every upload to one person's personal account, which independently
+ * broke twice: the OAuth token auto-expiring every ~7 days (Testing-status
+ * consent screen), and that person's own Drive quota filling up entirely
+ * (confirmed 2026-09-04, a full production outage).
+ *
+ * The obvious fix — move MQI_PHOTOS_DRIVE_FOLDER_ID into a Shared Drive, so
+ * the service account can write there directly (org-pooled quota, not tied
+ * to any one identity) — turned out not to be available here: Shared
+ * Drives are a Google Workspace-only feature, and both Google accounts this
+ * app uses (mja8291@gmail.com, tcfengineeringdepartment@gmail.com) are
+ * plain personal Gmail accounts with no Workspace domain behind them
+ * (confirmed with the user 2026-09-05 — no such domain exists at TCF).
+ * `supportsAllDrives`/`includeItemsFromAllDrives` were added to drive.ts's
+ * API calls anyway since they're harmless no-ops against a plain My Drive
+ * folder, in case a real Workspace domain ever shows up later. Until then,
+ * Drive stays on the OAuth-as-a-human fallback path — see memory notes for
+ * the current plan (switch the acting identity to
+ * tcfengineeringdepartment@gmail.com, which owns the folder outright, and
+ * finally publish the OAuth consent screen out of Testing to kill the
+ * 7-day expiry for good).
  */
 export async function getDriveClient() {
   return google.drive({ version: "v3", auth: getFallbackAuth() });
