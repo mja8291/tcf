@@ -36,7 +36,21 @@ function ResumeContent() {
       }
       loadDraft(draft.state);
       deleteDraft(id).then(() => window.dispatchEvent(new Event(DRAFTS_CHANGED_EVENT)));
-      router.replace(draft.method === 1 ? "/survey/m1" : "/survey/m2");
+      // Method 2 stages the location being scored in `m2.current` until
+      // "Save Selection and Return" finalizes it into `m2.locations` — a
+      // draft can easily be saved (now especially: autosave fires mid-edit,
+      // not just on an explicit Save draft tap) while a location is still
+      // sitting in `current`, unfinalized. /survey/m2 (the floor picker)
+      // only ever displays `m2.locations`, has no idea `current` exists,
+      // and its own chooseFloor() unconditionally overwrites `current` the
+      // moment any floor is tapped — so landing there after resume made an
+      // in-progress location's scores and photos look gone, and picking any
+      // floor would have silently discarded them for real. Route straight
+      // to the category/scoring screen instead, which reads `m2.current`
+      // directly and needs nothing else to pick up right where it left off.
+      const target =
+        draft.method === 1 ? "/survey/m1" : draft.state.m2.current ? "/survey/m2/category" : "/survey/m2";
+      router.replace(target);
     });
     return () => {
       cancelled = true;
