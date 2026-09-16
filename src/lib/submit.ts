@@ -74,8 +74,29 @@ export interface SubmitPayload {
   photoKeys: { attachmentKey: string; itemName: string; locationName: string; url: string }[];
 }
 
+/**
+ * A photo that hadn't successfully uploaded to Drive by submit time — most
+ * often because it was attached with no connectivity at all, not just a
+ * one-off blip (see photo-upload.ts / use-photo-upload-handlers.ts, which
+ * upload each photo immediately on attach and have no automatic retry of
+ * their own). Carrying the raw File here — safe in IndexedDB, unlike a
+ * network payload, since structured clone handles File natively (same as
+ * SurveyDraft already relies on) — is what lets a fully-offline assessment
+ * still queue for later instead of Submit being blocked until every photo
+ * resolves. See offline/sync.ts, which retries these independently of the
+ * JSON payload every time it flushes the queue.
+ */
+export interface PendingPhotoUpload {
+  attachmentKey: string;
+  itemName: string;
+  locationName: string;
+  location?: { floorLevel: string; type: string; name: string };
+  file: File;
+}
+
 export interface Submission {
   payload: SubmitPayload;
+  pendingPhotos: PendingPhotoUpload[];
 }
 
 /**
@@ -86,14 +107,20 @@ export interface Submission {
  * — see src/lib/offline/sync.ts — without ever risking Vercel's 4.5MB
  * request-body limit the way the old all-in-one submit did.
  *
- * Photos still "uploading" or in "error" state are skipped here — the
- * Review page blocks the Submit button until every attached photo has
- * resolved, so this should only ever see "uploaded" entries in practice.
+ * Photos still "uploading" are skipped here — the Review page blocks
+ * Submit while any are genuinely in flight, to avoid racing that upload's
+ * own state update, so this should never see one in practice. Photos in
+ * "error" status (most often: attached with no connectivity) are *not*
+ * skipped — they're collected into `pendingPhotos` instead of `photoKeys`,
+ * so the assessment can still be submitted (to the offline queue if
+ * necessary) instead of being stuck forever behind a photo that can't
+ * upload yet. See PendingPhotoUpload's doc comment.
  */
 export function buildSubmission(state: SubmitState, result: ScoreResult): Submission {
   const surveyId = state.surveyId ?? `${state.school.schoolId}-${Date.now()}`;
 
   const photoKeys: SubmitPayload["photoKeys"] = [];
+  const pendingPhotos: PendingPhotoUpload[] = [];
   const notes: SubmitPayload["notes"] = [];
 
   const endTime = new Date().toISOString();
@@ -109,8 +136,12 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
   if (state.method === 1) {
     for (const [itemName, itemPhotos] of Object.entries(state.m1.photos)) {
       itemPhotos.forEach((photo, i) => {
-        if (photo.status !== "uploaded" || !photo.url) return;
-        photoKeys.push({ attachmentKey: `${itemName}::${i}`, itemName, locationName: "", url: photo.url });
+        const attachmentKey = `${itemName}::${i}`;
+        if (photo.status === "uploaded" && photo.url) {
+          photoKeys.push({ attachmentKey, itemName, locationName: "", url: photo.url });
+        } else if (photo.status === "error") {
+          pendingPhotos.push({ attachmentKey, itemName, locationName: "", file: photo.file });
+        }
       });
     }
     for (const [itemName, note] of Object.entries(state.m1.notes)) {
@@ -120,8 +151,18 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
     for (const loc of state.m2.locations) {
       for (const [itemName, itemPhotos] of Object.entries(loc.photos)) {
         itemPhotos.forEach((photo, i) => {
-          if (photo.status !== "uploaded" || !photo.url) return;
-          photoKeys.push({ attachmentKey: `${loc.id}::${itemName}::${i}`, itemName, locationName: loc.name, url: photo.url });
+          const attachmentKey = `${loc.id}::${itemName}::${i}`;
+          if (photo.status === "uploaded" && photo.url) {
+            photoKeys.push({ attachmentKey, itemName, locationName: loc.name, url: photo.url });
+          } else if (photo.status === "error") {
+            pendingPhotos.push({
+              attachmentKey,
+              itemName,
+              locationName: loc.name,
+              location: { floorLevel: loc.floorLevel, type: loc.type, name: loc.name },
+              file: photo.file,
+            });
+          }
         });
       }
       for (const [itemName, note] of Object.entries(loc.notes)) {
@@ -168,7 +209,7 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
     photoKeys,
   };
 
-  return { payload };
+  return { payload, pendingPhotos };
 }
 
 /**

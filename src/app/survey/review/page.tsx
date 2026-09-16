@@ -75,14 +75,19 @@ export default function ReviewPage() {
   // Round 3 Task 8: photos upload individually as soon as they're attached
   // (see use-photo-upload-handlers.ts), not bundled into this submit — but
   // that means a photo can still be mid-upload, or stuck in "error", by the
-  // time the surveyor reaches Review. Submitting anyway would either send a
-  // payload missing that photo's reference entirely, or (for "uploading")
-  // race the upload's own state update — so block until every attached
-  // photo has resolved one way or the other.
+  // time the surveyor reaches Review. "uploading" still blocks Submit (it'd
+  // otherwise race that upload's own state update) — but "error" no longer
+  // does: with no connectivity at all for the whole visit, *every* photo
+  // attach fails immediately, and forcing that surveyor to strip every
+  // photo just to submit would defeat the entire point of the offline
+  // queue. A failed photo now travels with the submission as a
+  // PendingPhotoUpload instead (see submit.ts/offline/sync.ts) and finishes
+  // uploading whenever the queue next gets a connection — going back to
+  // retry or remove it here is still offered, just no longer required.
   const { uploading: photosUploading, failed: photosFailed } = countUnresolvedPhotos(
     state.method === 1 ? [state.m1.photos] : state.m2.locations.map((l) => l.photos)
   );
-  const canSubmit = oath && Boolean(powerSupply) && !submitting && photosUploading === 0 && photosFailed === 0;
+  const canSubmit = oath && Boolean(powerSupply) && !submitting && photosUploading === 0;
 
   async function submit() {
     if (!canSubmit || !powerSupply || !state.school || !state.method) return;
@@ -95,6 +100,23 @@ export default function ReviewPage() {
       { ...state, school: state.school, method: state.method, powerSupply, complaints },
       result
     );
+
+    if (submission.pendingPhotos.length > 0) {
+      // At least one photo never made it to Drive — most likely there was
+      // no connectivity at all when it was attached, not just a one-off
+      // blip. Rather than gamble on a direct POST possibly leaving those
+      // photos stranded outside the retry loop, always route through the
+      // queue here: flushPendingSubmissions resolves pendingPhotos and
+      // posts the payload together, and runs immediately anyway if we
+      // actually are online (see PwaBootstrap's on-open flush) — the Done
+      // screen we're about to land on (?queued=1) already kicks off a
+      // flush itself on mount, so a failure that was really just a
+      // one-off blip gets resolved right away instead of sitting queued
+      // until the next app open/online event for no reason.
+      await queueSubmission(submission);
+      router.push("/survey/done?queued=1");
+      return;
+    }
 
     let res: Response;
     try {
@@ -258,8 +280,9 @@ export default function ReviewPage() {
       ) : null}
       {photosFailed > 0 ? (
         <p className="text-xs text-band-poor mt-3">
-          {photosFailed === 1 ? "1 photo" : `${photosFailed} photos`} failed to upload — go back to the item and retry or
-          remove {photosFailed === 1 ? "it" : "them"} before submitting.
+          {photosFailed === 1 ? "1 photo" : `${photosFailed} photos`} couldn&apos;t upload — most likely no connection at
+          the time. Submitting will queue {photosFailed === 1 ? "it" : "them"} to finish uploading once you&apos;re back
+          online, or go back to the item to retry or remove {photosFailed === 1 ? "it" : "them"} now.
         </p>
       ) : null}
       {error ? <p className="text-xs text-band-poor mt-3">{error}</p> : null}

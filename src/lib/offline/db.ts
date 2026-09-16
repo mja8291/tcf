@@ -142,6 +142,25 @@ export async function removePendingSubmission(id: number): Promise<void> {
   });
 }
 
+/**
+ * Overwrites one already-queued submission in place — used by
+ * flushPendingSubmissions to persist progress as each of a submission's
+ * pendingPhotos resolves, so a flush that gets interrupted partway through
+ * (still offline, tab closed) doesn't re-upload photos that already
+ * succeeded on the next attempt. `id` (the keyPath) must already be present
+ * on `submission`, i.e. this only ever patches a record `getPendingSubmissions`
+ * already returned — it never creates a new one (see queueSubmission for that).
+ */
+export async function updatePendingSubmission(submission: QueuedSubmission): Promise<void> {
+  const db = await openDB();
+  const tx = db.transaction(SUBMISSIONS_STORE, "readwrite");
+  tx.objectStore(SUBMISSIONS_STORE).put(submission);
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export async function countPendingSubmissions(): Promise<number> {
   const db = await openDB();
   const tx = db.transaction(SUBMISSIONS_STORE, "readonly");
