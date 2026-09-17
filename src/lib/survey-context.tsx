@@ -134,6 +134,7 @@ type Action =
   | { type: "M2_CURRENT_REMOVE_PHOTO"; name: string; id: string }
   | { type: "M2_CURRENT_SET_NOTE"; name: string; value: string }
   | { type: "M2_FINALIZE_CURRENT" }
+  | { type: "M2_DISCARD_CURRENT" }
   | { type: "M2_RESUME_LOCATION"; id: string }
   | { type: "LOAD_DRAFT"; state: SurveyState }
   | { type: "DISCARD_METHOD_PROGRESS" }
@@ -311,6 +312,12 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       };
       return { ...state, m2: { ...state.m2, locations: [...state.m2.locations, location], current: null } };
     }
+    case "M2_DISCARD_CURRENT":
+      // The explicit "discard" side of the category page's incomplete-work
+      // confirmation — unlike M2_FINALIZE_CURRENT, this never adds a
+      // location: whatever's scored on this unfinished location is dropped
+      // entirely, not saved as an "Incomplete" entry to come back to later.
+      return { ...state, m2: { ...state.m2, current: null } };
     case "M2_RESUME_LOCATION": {
       // Pulls a previously-finalized location back into `current` for
       // editing — the only way to fix an incomplete location (added
@@ -402,6 +409,7 @@ interface SurveyContextValue {
   m2CurrentRemovePhoto: (name: string, id: string) => void;
   m2CurrentSetNote: (name: string, value: string) => void;
   m2FinalizeCurrent: () => void;
+  m2DiscardCurrent: () => void;
   m2ResumeLocation: (id: string) => void;
   loadDraft: (state: SurveyState) => void;
   discardMethodProgress: () => void;
@@ -442,6 +450,7 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       m2CurrentRemovePhoto: (name, id) => dispatch({ type: "M2_CURRENT_REMOVE_PHOTO", name, id }),
       m2CurrentSetNote: (name, value) => dispatch({ type: "M2_CURRENT_SET_NOTE", name, value }),
       m2FinalizeCurrent: () => dispatch({ type: "M2_FINALIZE_CURRENT" }),
+      m2DiscardCurrent: () => dispatch({ type: "M2_DISCARD_CURRENT" }),
       m2ResumeLocation: (id) => dispatch({ type: "M2_RESUME_LOCATION", id }),
       loadDraft: (draftState) => dispatch({ type: "LOAD_DRAFT", state: draftState }),
       discardMethodProgress: () => dispatch({ type: "DISCARD_METHOD_PROGRESS" }),

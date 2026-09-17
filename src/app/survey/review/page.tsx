@@ -15,7 +15,8 @@ import { isMethod2LocationComplete } from "@/lib/data/method2-items";
 import { OATH_TEXT, POWER_SUPPLY_OPTIONS } from "@/lib/data/content";
 import type { PowerSupply } from "@/lib/types";
 import { buildSubmission, countUnresolvedPhotos } from "@/lib/submit";
-import { queueSubmission } from "@/lib/offline/db";
+import { queueSubmission, deleteDraft } from "@/lib/offline/db";
+import { DRAFTS_CHANGED_EVENT } from "@/lib/draft";
 import { formatDuration } from "@/lib/format-duration";
 import { buildDraftExcelBlob, buildDraftPdfBlob, downloadBlob, draftExportFilenameBase } from "@/lib/export/draft-export";
 import { FileSpreadsheet, FileText } from "lucide-react";
@@ -89,6 +90,21 @@ export default function ReviewPage() {
   );
   const canSubmit = oath && Boolean(powerSupply) && !submitting && photosUploading === 0;
 
+  // Once Submit is tapped and actually accepted — synced immediately, or
+  // queued for later — the assessment is done, not still a draft: nothing
+  // deleted the autosaved draft record before this (autosave keeps writing
+  // it right up through this page, submission included), so without this
+  // an already-submitted survey kept showing on Home as if it were still
+  // waiting to be finished, alongside its own real "queued, waiting to
+  // sync" state if it went offline — confusing and easy to mistake for
+  // duplicate, unfinished work. Not called on a real failure (res.ok false
+  // below) — that one genuinely needs the draft kept so nothing's lost.
+  async function clearDraft() {
+    if (!state.surveyId) return;
+    await deleteDraft(state.surveyId);
+    window.dispatchEvent(new Event(DRAFTS_CHANGED_EVENT));
+  }
+
   async function submit() {
     if (!canSubmit || !powerSupply || !state.school || !state.method) return;
     setSubmitting(true);
@@ -114,6 +130,7 @@ export default function ReviewPage() {
       // one-off blip gets resolved right away instead of sitting queued
       // until the next app open/online event for no reason.
       await queueSubmission(submission);
+      await clearDraft();
       router.push("/survey/done?queued=1");
       return;
     }
@@ -129,6 +146,7 @@ export default function ReviewPage() {
       // Couldn't reach the server at all — treat as offline. Queue it locally
       // and sync automatically once connectivity returns (see PwaBootstrap).
       await queueSubmission(submission);
+      await clearDraft();
       router.push("/survey/done?queued=1");
       return;
     }
@@ -151,6 +169,7 @@ export default function ReviewPage() {
       return;
     }
     setLastSurveyId(submission.payload.surveyId);
+    await clearDraft();
     router.push("/survey/done");
   }
 

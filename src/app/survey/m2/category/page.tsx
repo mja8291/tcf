@@ -8,6 +8,7 @@ import { AccordionSection } from "@/components/ui/AccordionSection";
 import { ItemRow } from "@/components/ui/ItemRow";
 import { Button } from "@/components/ui/Button";
 import { BottomBar } from "@/components/ui/BottomBar";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useSurvey } from "@/lib/survey-context";
 import { usePhotoUploadHandlers } from "@/lib/use-photo-upload-handlers";
 import {
@@ -39,6 +40,7 @@ export default function Method2CategoryPage() {
     m2CurrentRemovePhoto,
     m2CurrentSetNote,
     m2FinalizeCurrent,
+    m2DiscardCurrent,
   } = useSurvey();
   const current = state.m2.current;
   const { handleAddPhoto, handleRetryPhoto, handleRemovePhoto } = usePhotoUploadHandlers({
@@ -54,6 +56,7 @@ export default function Method2CategoryPage() {
   });
   const [openCategory, setOpenCategory] = useState<WorkCategory | null>(null);
   const [attemptedSave, setAttemptedSave] = useState(false);
+  const [confirmBack, setConfirmBack] = useState(false);
 
   // Mount-only: goBack() below deliberately clears `current` as part of
   // navigating away — if this depended on `current` it would re-fire on
@@ -81,11 +84,34 @@ export default function Method2CategoryPage() {
     return floorLevel === "Roof" ? "/survey/m2" : `/survey/m2/location?floor=${encodeURIComponent(floorLevel)}`;
   }
 
-  // Unrestricted — always saves whatever's been scored so far and leaves.
-  // Deliberately not gated on completeness (see BottomBar's "Save Selection
-  // and Return" below for the validated equivalent).
+  // Leaving with everything scored just finalizes and goes — nothing to
+  // confirm. Leaving with unscored items used to silently finalize the
+  // location anyway (as "Incomplete" — the floor picker's "Locations
+  // recorded" list can still show that badge for a location saved before
+  // this changed, or restored from an older draft) with zero warning at
+  // the moment of tapping back — easy to walk away believing this location
+  // was actually finished. Ask instead of guessing which one they meant;
+  // the only way to leave an incomplete location now is the explicit
+  // discard below, not a silent partial save.
   function goBack() {
-    m2FinalizeCurrent();
+    if (allComplete) {
+      m2FinalizeCurrent();
+      router.push(targetRoute());
+      return;
+    }
+    if (Object.keys(current!.scores).length === 0) {
+      // Nothing's been entered on this location at all yet (just landed
+      // here, or backed out of every category without picking a
+      // condition) — nothing to warn about discarding, so don't.
+      m2DiscardCurrent();
+      router.push(targetRoute());
+      return;
+    }
+    setConfirmBack(true);
+  }
+
+  function confirmDiscardAndGoBack() {
+    m2DiscardCurrent();
     router.push(targetRoute());
   }
 
@@ -107,6 +133,19 @@ export default function Method2CategoryPage() {
   return (
     <ScreenShell>
       <TopBar title="Work category" onBack={goBack} />
+      <ConfirmDialog
+        open={confirmBack}
+        title="You haven't scored all items"
+        message={
+          incomplete.length === 1
+            ? `"${incomplete[0].wc}" still has unscored items in this location. Go back and discard everything scored here, or stay and finish the rest?`
+            : `${incomplete.length} categories still have unscored items in this location. Go back and discard everything scored here, or stay and finish the rest?`
+        }
+        confirmLabel="Discard and go back"
+        cancelLabel="Complete remaining items"
+        onConfirm={confirmDiscardAndGoBack}
+        onCancel={() => setConfirmBack(false)}
+      />
       <div className="bg-brand-tint text-brand-deep text-[13px] font-semibold rounded-xl px-3.5 py-2.5 mb-4">
         {current.floorLevel} — {type} — {current.name}
       </div>
@@ -151,9 +190,7 @@ export default function Method2CategoryPage() {
               : `${incomplete.length} categories still have unscored items.`}
           </p>
         ) : (
-          <p className="text-center text-[11.5px] text-ink-faint mt-2.5">
-            Score every category, or use the back arrow to save progress and come back later.
-          </p>
+          <p className="text-center text-[11.5px] text-ink-faint mt-2.5">Score every category to continue.</p>
         )}
       </BottomBar>
     </ScreenShell>

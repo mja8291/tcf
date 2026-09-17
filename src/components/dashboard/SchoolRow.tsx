@@ -1,4 +1,4 @@
-import { Download } from "lucide-react";
+import { FileSpreadsheet, FileText } from "lucide-react";
 import { BAND_COLOR } from "@/lib/scoring";
 import type { CapturedSchool } from "@/lib/data/mock-dashboard";
 
@@ -26,13 +26,22 @@ export function SchoolRow({ school }: { school: CapturedSchool }) {
         {Math.round(school.overall)}% · {school.band}
       </span>
       {school.surveyId ? (
-        <a
-          href={`/api/export/survey/${school.surveyId}`}
-          aria-label={`Export ${school.name} as Excel`}
-          className="h-10 w-10 shrink-0 rounded-lg border border-border flex items-center justify-center text-ink-faint"
-        >
-          <Download size={15} />
-        </a>
+        <span className="flex items-center gap-1.5 shrink-0">
+          <a
+            href={`/api/export/survey/${school.surveyId}`}
+            aria-label={`Export ${school.name} as Excel`}
+            className="h-10 w-10 shrink-0 rounded-lg border border-border flex items-center justify-center text-ink-faint"
+          >
+            <FileSpreadsheet size={15} />
+          </a>
+          <a
+            href={`/api/export/survey/${school.surveyId}/pdf`}
+            aria-label={`Export ${school.name} as PDF`}
+            className="h-10 w-10 shrink-0 rounded-lg border border-border flex items-center justify-center text-ink-faint"
+          >
+            <FileText size={15} />
+          </a>
+        </span>
       ) : null}
     </div>
   );

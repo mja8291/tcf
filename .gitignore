@@ -17,6 +17,10 @@
 /.next/
 /out/
 
+# generated post-build (scripts/generate-sw-precache.mjs) — regenerated on
+# every build from that build's own output, never hand-edited
+/public/precache-manifest.js
+
 # production
 /build
 
