@@ -31,13 +31,21 @@ const APP_DIR = join(ROOT, ".next", "server", "app");
 // hand-maintained, not auto-discovered — API routes and error boundaries
 // (_not-found, _global-error) don't belong here, and a route added later
 // needs a human to notice it should be offline-capable too.
+// Order matters, not just membership: sw.js fires every one of these as one
+// big parallel batch (see its install handler), but on a slow/weak
+// connection — a real, confirmed scenario, not hypothetical — not every
+// request necessarily finishes before connectivity drops. Listed roughly
+// in the order a surveyor actually moves through an assessment (Home
+// first, since it's both the entry point and the offline fallback's own
+// "Go to Home" escape hatch; /survey/resume high up too, since it's the
+// landing spot after a forced reload — see survey-context.tsx's
+// ACTIVE_SURVEY_STORAGE_KEY), so whatever manages to finish downloading
+// first is whatever's most likely to actually be needed.
 const ROUTES = [
   "/",
-  "/dashboard",
-  "/privacy",
-  "/terms",
   "/survey/find-school",
   "/survey/method",
+  "/survey/resume",
   "/survey/m1",
   "/survey/m1/campus-visit",
   "/survey/m2",
@@ -46,8 +54,10 @@ const ROUTES = [
   "/survey/m2/location/classroom",
   "/survey/m2/category",
   "/survey/review",
-  "/survey/resume",
   "/survey/done",
+  "/dashboard",
+  "/privacy",
+  "/terms",
 ];
 
 function htmlFileFor(route) {

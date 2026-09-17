@@ -60,18 +60,34 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       const staticCache = await caches.open(STATIC_CACHE);
-      // OFFLINE_URL first, on its own — the one thing that must not be
-      // allowed to get caught up in a larger batch's failure, since it's
-      // the fallback everything else here exists to protect.
+      // OFFLINE_URL first, on its own, *awaited* before anything else
+      // starts — the one thing that must not be allowed to get caught up
+      // in a larger batch's failure (see cacheAllSettled) or lose a race
+      // for bandwidth against everything else (see below): it's small,
+      // it's the fallback everything else here exists to protect, and it
+      // needs to be secured within the first moment of install, not
+      // whenever its turn happens to come up in a big parallel batch.
       await cacheAllSettled(staticCache, [OFFLINE_URL]);
-      await cacheAllSettled(staticCache, ["/manifest.webmanifest", ...PRECACHE_ASSETS]);
-      // Every known route, precached as of this build — not just whichever
-      // pages someone happened to open online first — so a cold start (the
-      // Android app relaunching after being killed, for instance) on a
-      // scoring page nobody's visited yet on this device still works with
-      // zero connectivity instead of hitting the offline fallback.
+
+      // Pages and static assets fire as ONE combined parallel batch, not
+      // sequential stages — install used to fully finish all ~29 static
+      // assets before even starting the 16 pages, and install itself runs
+      // fully in the background, unrelated to the app's own UI already
+      // being interactive (registering and installing costs nothing
+      // blocking — see PwaBootstrap). On a weak connection, "open the app,
+      // see it load, immediately go offline" was a completely realistic
+      // sequence for a real surveyor — confirmed happening on a real
+      // device — and staging things sequentially meant the pages (the
+      // part that actually decides whether a later offline *navigation*
+      // succeeds, not just whether some asset is cached) might never even
+      // start downloading before connectivity dropped. Firing everything
+      // together gives pages the same head start as static assets instead
+      // of queuing behind them.
       const pagesCache = await caches.open(PAGES_CACHE);
-      await cacheAllSettled(pagesCache, PRECACHE_PAGES);
+      await Promise.allSettled([
+        ...["/manifest.webmanifest", ...PRECACHE_ASSETS].map((url) => staticCache.add(url)),
+        ...PRECACHE_PAGES.map((url) => pagesCache.add(url)),
+      ]);
     })()
   );
   self.skipWaiting();
