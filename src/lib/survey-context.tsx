@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useMemo, useReducer } from "react";
+import { createContext, useContext, useEffect, useMemo, useReducer, useState } from "react";
+import { getDraft } from "./offline/db";
 import type {
   Condition,
   FloorLevel,
@@ -63,6 +64,25 @@ export interface SurveyState {
 function newSurveyId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `survey-${Date.now()}`;
 }
+
+/**
+ * Points at whichever draft is "the one currently open" — kept in sync with
+ * state.surveyId (see the effect in SurveyProvider below) so a forced fresh
+ * reload mid-assessment can find its way back. This exists because of a
+ * failure mode that has nothing to do with caching: a client-side
+ * navigation (router.push) whose network request fails — confirmed via
+ * Next's own console: "Failed to fetch RSC payload... Falling back to
+ * browser navigation" — makes Next fall back to a real, fresh page load.
+ * Precaching (see public/sw.js) makes that fresh load itself succeed
+ * offline, but a fresh load still means a brand new SurveyProvider with
+ * nothing in memory — every guarded page's own "no school/method, bounce to
+ * find-school" check would otherwise fire immediately and look exactly like
+ * the survey was lost, even though autosave had it safely in IndexedDB the
+ * whole time. localStorage (not IndexedDB) specifically because it's read
+ * synchronously — nothing here can afford to wait on an async DB open just
+ * to know whether an auto-resume attempt is worth making at all.
+ */
+const ACTIVE_SURVEY_STORAGE_KEY = "mqi-active-survey-id";
 
 function initialState(): SurveyState {
   return {
@@ -365,10 +385,19 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       // router.push("/survey/method") completes and redirects to
       // find-school instead. Leaving it as-is is harmless — setMethod
       // overwrites it the moment they pick again on that screen.
+      //
+      // `surveyId` *is* nulled, though (no guard reads it, so no equivalent
+      // race) — it's what ACTIVE_SURVEY_STORAGE_KEY's sync effect keys off
+      // of, and leaving the old one in place meant a discarded attempt
+      // could silently reappear on the next cold start (see
+      // survey-context.tsx's ACTIVE_SURVEY_STORAGE_KEY) even though the
+      // user explicitly walked away from it. A fresh one is minted the
+      // moment they pick a method again (SET_METHOD), same as always.
       return {
         ...state,
         m1: { scores: {}, photos: {}, notes: {} },
         m2: { locations: [], current: null },
+        surveyId: null,
         startTime: null,
         pausedAt: null,
         pausedSeconds: 0,
@@ -416,16 +445,71 @@ interface SurveyContextValue {
   pauseTimer: () => void;
   resumeTimer: () => void;
   reset: () => void;
+  /**
+   * False only for the brief window (one async IndexedDB read, at most)
+   * right after mount while a possible auto-resume is being attempted — see
+   * ACTIVE_SURVEY_STORAGE_KEY. Every page whose own guard effect would
+   * otherwise redirect away for "no school/method" (or, on the Method 2
+   * category page, "no current location") must wait for this to become
+   * true first, or it'll win the race and redirect before the resume had a
+   * chance to load anything.
+   */
+  hydrated: boolean;
 }
 
 const SurveyContext = createContext<SurveyContextValue | null>(null);
 
 export function SurveyProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Attempt the auto-resume described on ACTIVE_SURVEY_STORAGE_KEY, once,
+  // on mount. Runs even when there's no pointer (nothing to resume) — the
+  // point isn't just the resume itself, it's that every guarded page needs
+  // to know this attempt has *finished* (see `hydrated`) before trusting
+  // "no school/method" to mean "no survey," rather than "haven't checked
+  // yet."
+  useEffect(() => {
+    let cancelled = false;
+    const id = typeof window !== "undefined" ? localStorage.getItem(ACTIVE_SURVEY_STORAGE_KEY) : null;
+    if (!id) {
+      setHydrated(true);
+      return;
+    }
+    getDraft(id)
+      .then((draft) => {
+        if (cancelled) return;
+        if (draft) dispatch({ type: "LOAD_DRAFT", state: draft.state });
+      })
+      .catch(() => {
+        // IndexedDB unavailable, or something malformed — fall through to
+        // the normal "nothing to resume" guards rather than getting stuck.
+      })
+      .finally(() => {
+        if (!cancelled) setHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Deliberately mount-only — this is a one-time recovery attempt, not a
+    // live subscription to localStorage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keeps the pointer current with whichever survey is actually live in
+  // memory right now — set the moment one starts (SET_METHOD) or resumes
+  // (LOAD_DRAFT), cleared the moment one ends (submitted — see
+  // review.tsx's clearDraft/reset chain — or discarded/reset).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (state.surveyId) localStorage.setItem(ACTIVE_SURVEY_STORAGE_KEY, state.surveyId);
+    else localStorage.removeItem(ACTIVE_SURVEY_STORAGE_KEY);
+  }, [state.surveyId]);
 
   const value = useMemo<SurveyContextValue>(
     () => ({
       state,
+      hydrated,
       setSchool: (school) => dispatch({ type: "SET_SCHOOL", school }),
       setMethod: (method) => dispatch({ type: "SET_METHOD", method }),
       setRespondent: (asm, apm, principal) => dispatch({ type: "SET_RESPONDENT", asm, apm, principal }),
@@ -458,7 +542,7 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       resumeTimer: () => dispatch({ type: "RESUME_TIMER" }),
       reset: () => dispatch({ type: "RESET" }),
     }),
-    [state]
+    [state, hydrated]
   );
 
   return <SurveyContext.Provider value={value}>{children}</SurveyContext.Provider>;

@@ -43,7 +43,7 @@ function itemAnchorId(name: string) {
  */
 export default function CampusVisitPage() {
   const router = useRouter();
-  const { state, m1AddPhoto, m1SetPhotoStatus, m1RemovePhoto, discardMethodProgress } = useSurvey();
+  const { state, hydrated, m1AddPhoto, m1SetPhotoStatus, m1RemovePhoto, discardMethodProgress } = useSurvey();
   const { handleAddPhoto, handleRetryPhoto, handleRemovePhoto } = usePhotoUploadHandlers({
     surveyId: state.surveyId,
     region: state.school?.region ?? "",
@@ -57,8 +57,14 @@ export default function CampusVisitPage() {
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // Wait for a possible auto-resume to settle first — a forced fresh
+    // reload mid-assessment (see survey-context.tsx's ACTIVE_SURVEY_STORAGE_KEY)
+    // starts with no school/method for one tick regardless of whether
+    // there's actually a survey to recover; redirecting before that
+    // resolves would make the redirect race the recovery and win every time.
+    if (!hydrated) return;
     if (!state.school || state.method !== 1) router.replace("/survey/find-school");
-  }, [state.school, state.method, router]);
+  }, [hydrated, state.school, state.method, router]);
 
   useEffect(() => {
     return () => {

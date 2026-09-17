@@ -11,14 +11,16 @@ import { useSurvey } from "@/lib/survey-context";
 
 export default function MethodChoicePage() {
   const router = useRouter();
-  const { state, setRespondent, setMethod } = useSurvey();
+  const { state, hydrated, setRespondent, setMethod } = useSurvey();
   const [apm, setApm] = useState(state.apm);
   const [asm, setAsm] = useState(state.asm);
   const [principal, setPrincipal] = useState(state.principal);
 
   useEffect(() => {
+    // See survey/m1/campus-visit/page.tsx's matching effect for why this waits.
+    if (!hydrated) return;
     if (!state.school) router.replace("/survey/find-school");
-  }, [state.school, router]);
+  }, [hydrated, state.school, router]);
 
   const respondentComplete = Boolean(apm.trim() && asm.trim() && principal.trim());
 

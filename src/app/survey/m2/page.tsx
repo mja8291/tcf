@@ -16,12 +16,14 @@ import type { FloorLevel } from "@/lib/types";
 
 export default function Method2FloorPage() {
   const router = useRouter();
-  const { state, m2SetFloor, m2ResumeLocation, discardMethodProgress } = useSurvey();
+  const { state, hydrated, m2SetFloor, m2ResumeLocation, discardMethodProgress } = useSurvey();
   const [confirmBack, setConfirmBack] = useState(false);
 
   useEffect(() => {
+    // See survey/m1/campus-visit/page.tsx's matching effect for why this waits.
+    if (!hydrated) return;
     if (!state.school || state.method !== 2) router.replace("/survey/find-school");
-  }, [state.school, state.method, router]);
+  }, [hydrated, state.school, state.method, router]);
 
   if (!state.school) return null;
 

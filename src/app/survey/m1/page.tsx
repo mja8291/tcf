@@ -36,8 +36,16 @@ const TINT: Record<Category, string> = {
  */
 export default function Method1Page() {
   const router = useRouter();
-  const { state, m1SetScore, m1AddPhoto, m1SetPhotoStatus, m1RemovePhoto, m1SetNote, discardMethodProgress } =
-    useSurvey();
+  const {
+    state,
+    hydrated,
+    m1SetScore,
+    m1AddPhoto,
+    m1SetPhotoStatus,
+    m1RemovePhoto,
+    m1SetNote,
+    discardMethodProgress,
+  } = useSurvey();
   const { handleAddPhoto, handleRetryPhoto, handleRemovePhoto } = usePhotoUploadHandlers({
     surveyId: state.surveyId,
     region: state.school?.region ?? "",
@@ -51,8 +59,10 @@ export default function Method1Page() {
   const [attemptedSave, setAttemptedSave] = useState(false);
 
   useEffect(() => {
+    // See campus-visit/page.tsx's matching effect for why this waits.
+    if (!hydrated) return;
     if (!state.school || state.method !== 1) router.replace("/survey/find-school");
-  }, [state.school, state.method, router]);
+  }, [hydrated, state.school, state.method, router]);
 
   if (!state.school) return null;
 

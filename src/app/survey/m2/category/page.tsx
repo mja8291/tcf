@@ -34,6 +34,7 @@ export default function Method2CategoryPage() {
   const router = useRouter();
   const {
     state,
+    hydrated,
     m2CurrentSetScore,
     m2CurrentAddPhoto,
     m2CurrentSetPhotoStatus,
@@ -58,13 +59,18 @@ export default function Method2CategoryPage() {
   const [attemptedSave, setAttemptedSave] = useState(false);
   const [confirmBack, setConfirmBack] = useState(false);
 
-  // Mount-only: goBack() below deliberately clears `current` as part of
-  // navigating away — if this depended on `current` it would re-fire on
-  // that transition and race the explicit router.push.
+  // Deliberately depends only on `hydrated`, not `current` — goBack() below
+  // clears `current` as part of navigating away, and depending on it here
+  // would re-fire this exact check mid-navigation and race the explicit
+  // router.push. It still needs to wait on `hydrated` (see
+  // survey/m1/campus-visit/page.tsx's matching effect) so this doesn't
+  // bounce away before a possible auto-resume — reached directly by resume,
+  // not just via the floor picker — has loaded `current`.
   useEffect(() => {
+    if (!hydrated) return;
     if (!current || !current.type) router.replace("/survey/m2");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hydrated]);
 
   if (!current || !current.type) return null;
   const type = current.type;

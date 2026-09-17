@@ -23,7 +23,7 @@ import { FileSpreadsheet, FileText } from "lucide-react";
 
 export default function ReviewPage() {
   const router = useRouter();
-  const { state, setPowerSupply, setComplaints, setLastSurveyId } = useSurvey();
+  const { state, hydrated, setPowerSupply, setComplaints, setLastSurveyId } = useSurvey();
   const [powerSupply, setLocalPowerSupply] = useState<PowerSupply | "">(state.powerSupply);
   const [complaints, setLocalComplaints] = useState(state.complaints);
   const [oath, setOath] = useState(false);
@@ -32,6 +32,8 @@ export default function ReviewPage() {
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
 
   useEffect(() => {
+    // See survey/m1/campus-visit/page.tsx's matching effect for why this waits.
+    if (!hydrated) return;
     if (!state.school || !state.method) {
       router.replace("/survey/find-school");
       return;
@@ -43,7 +45,7 @@ export default function ReviewPage() {
       const incomplete = state.m2.locations.length === 0 || state.m2.locations.some((l) => !isMethod2LocationComplete(l));
       if (incomplete) router.replace("/survey/m2");
     }
-  }, [state.school, state.method, state.m2.locations, router]);
+  }, [hydrated, state.school, state.method, state.m2.locations, router]);
 
   const result = useMemo(
     () => (state.method === 1 ? scoreMethod1(state.m1.scores) : scoreMethod2(state.m2.locations)),
