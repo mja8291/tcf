@@ -124,15 +124,28 @@ async function cacheFirst(request, cacheName) {
 }
 
 // Network-first with cache fallback: prefer fresh data, fall back to the
-// last-known-good copy when offline.
-async function networkFirst(request, cacheName) {
+// last-known-good copy when offline. `ignoreSearch` matters specifically
+// for page navigations: every precached page (see generate-sw-precache.mjs)
+// is keyed by its bare path, but several real routes always carry required
+// query params on an actual visit — /survey/m2/location?floor=Ground, for
+// instance — and Cache.match() does an *exact* URL match, query string
+// included, by default. Confirmed live: that mismatch alone made a
+// perfectly-precached route still fall through to the offline page,
+// because the cache lookup for the real (parameterized) URL never matched
+// the bare one that got stored. These are all static, fully prerendered
+// pages that read their params client-side, so the cached shell is
+// identical regardless of the query string — safe to ignore here. Left
+// off (the default) for the API_CACHE callers below, where a query string
+// could someday mean genuinely different data, not just a different client
+// view of the same shell.
+async function networkFirst(request, cacheName, { ignoreSearch = false } = {}) {
   const cache = await caches.open(cacheName);
   try {
     const response = await fetch(request);
     if (response.ok) cache.put(request, response.clone());
     return response;
   } catch {
-    const cached = await cache.match(request);
+    const cached = await cache.match(request, { ignoreSearch });
     if (cached) return cached;
     throw new Error("offline and not cached");
   }
@@ -156,7 +169,9 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      networkFirst(request, PAGES_CACHE).catch(async () => (await caches.match(OFFLINE_URL)) || inlineFallbackResponse())
+      networkFirst(request, PAGES_CACHE, { ignoreSearch: true }).catch(
+        async () => (await caches.match(OFFLINE_URL)) || inlineFallbackResponse()
+      )
     );
   }
 });
