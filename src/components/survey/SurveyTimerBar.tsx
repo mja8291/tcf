@@ -111,6 +111,32 @@ export function SurveyTimerBar() {
     }
   }, [state, runSave]);
 
+  // The debounce above (and the pagehide/visibilitychange flush further
+  // down) both assume *some* orderly event gives autosave a chance to run
+  // before data is at risk — a pause in typing, or the page being
+  // backgrounded/unloaded. Neither assumption holds for the single most
+  // fragile moment in the whole flow: the instant a method is first chosen
+  // (SET_METHOD, which mints surveyId) leaves a survey that exists only in
+  // memory, with nothing in IndexedDB yet to recover — see
+  // ACTIVE_SURVEY_STORAGE_KEY in survey-context.tsx, which points at this
+  // surveyId but has nothing to load until a draft actually lands. A real
+  // Android app-process kill under memory pressure isn't a graceful
+  // navigation or backgrounding event; it doesn't reliably fire pagehide or
+  // visibilitychange at all, so if that happens inside the debounce's ~2s
+  // window (confirmed reported live: connection dropped, tapped a method,
+  // landed straight back on Home with nothing to resume into), autosave
+  // never got a chance to run even once. Saving immediately the moment a
+  // new surveyId first appears — instead of waiting on the debounce — means
+  // there's always at least one real snapshot in IndexedDB from the first
+  // instant a survey exists, not just from whenever activity next settles.
+  const lastSavedSurveyIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (state.surveyId && state.surveyId !== lastSavedSurveyIdRef.current) {
+      lastSavedSurveyIdRef.current = state.surveyId;
+      void runSave();
+    }
+  }, [state.surveyId, runSave]);
+
   // Safety net for a sudden interruption (incoming call, switching apps,
   // closing the tab) — flush immediately instead of waiting on the debounce.
   // visibilitychange fires reliably when a mobile browser is backgrounded
