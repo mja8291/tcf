@@ -3,10 +3,12 @@ import Image from "next/image";
 import { ScreenShell } from "@/components/ui/ScreenShell";
 import { PendingSyncBanner } from "@/components/PendingSyncBanner";
 import { DraftsBanner } from "@/components/DraftsBanner";
+import { AutoResumeRedirect } from "@/components/AutoResumeRedirect";
 
 export default function HomePage() {
   return (
     <ScreenShell>
+      <AutoResumeRedirect />
       <div className="flex-[0.4]" />
       <PendingSyncBanner />
       <DraftsBanner />

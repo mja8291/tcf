@@ -6,15 +6,18 @@ import { ScreenShell } from "@/components/ui/ScreenShell";
 import { useSurvey } from "@/lib/survey-context";
 import { getDraft, deleteDraft } from "@/lib/offline/db";
 import { DRAFTS_CHANGED_EVENT } from "@/lib/draft";
+import { resumeTargetRoute } from "@/lib/resume-target";
 
 /**
  * Transitional page (Round 3 Task 9) — the home screen's draft list links
- * here rather than calling loadDraft directly, because SurveyProvider only
- * wraps /survey/*, not the home page. Loads the draft, drops it from the
- * drafts store (it's live app state again now, not a saved-and-closed
- * snapshot), and continues straight into scoring — no reason to replay the
- * Method 1 Campus Visit intro or method selection for progress that's
- * already underway.
+ * here (this is the manual "tap a draft" path; see AutoResumeRedirect for
+ * the automatic one, which fires on Home itself without needing this page
+ * at all) rather than calling loadDraft directly, since a plain link is
+ * simpler than wiring every DraftsBanner row through context. Loads the
+ * draft, drops it from the drafts store (it's live app state again now,
+ * not a saved-and-closed snapshot), and continues straight into scoring —
+ * no reason to replay the Method 1 Campus Visit intro or method selection
+ * for progress that's already underway.
  */
 function ResumeContent() {
   const router = useRouter();
@@ -36,21 +39,7 @@ function ResumeContent() {
       }
       loadDraft(draft.state);
       deleteDraft(id).then(() => window.dispatchEvent(new Event(DRAFTS_CHANGED_EVENT)));
-      // Method 2 stages the location being scored in `m2.current` until
-      // "Save Selection and Return" finalizes it into `m2.locations` — a
-      // draft can easily be saved (now especially: autosave fires mid-edit,
-      // not just on an explicit Save draft tap) while a location is still
-      // sitting in `current`, unfinalized. /survey/m2 (the floor picker)
-      // only ever displays `m2.locations`, has no idea `current` exists,
-      // and its own chooseFloor() unconditionally overwrites `current` the
-      // moment any floor is tapped — so landing there after resume made an
-      // in-progress location's scores and photos look gone, and picking any
-      // floor would have silently discarded them for real. Route straight
-      // to the category/scoring screen instead, which reads `m2.current`
-      // directly and needs nothing else to pick up right where it left off.
-      const target =
-        draft.method === 1 ? "/survey/m1" : draft.state.m2.current ? "/survey/m2/category" : "/survey/m2";
-      router.replace(target);
+      router.replace(resumeTargetRoute(draft.state));
     });
     return () => {
       cancelled = true;
