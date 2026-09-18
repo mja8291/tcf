@@ -84,6 +84,24 @@ function newSurveyId(): string {
  */
 const ACTIVE_SURVEY_STORAGE_KEY = "mqi-active-survey-id";
 
+/**
+ * Same forced-fresh-reload failure mode as ACTIVE_SURVEY_STORAGE_KEY above,
+ * but for the one gap that pointer doesn't cover: picking a school happens
+ * on find-school, *before* a method is chosen, and surveyId (what
+ * ACTIVE_SURVEY_STORAGE_KEY keys off) isn't minted until SET_METHOD. A
+ * failed router.push("/survey/method") right after selecting a school —
+ * confirmed live, offline, exactly this transition — falls back to a fresh
+ * page load same as any other client navigation here, which mints a brand
+ * new SurveyProvider with school back to null, and /survey/method's own
+ * guard bounces straight back to find-school looking exactly like the
+ * selection was silently lost. Kept in sync with state.school the same way
+ * (write on select, clear on RESET) and restored on mount specifically in
+ * the "nothing to resume" branch below — once a method's chosen and a real
+ * surveyId/draft exists, LOAD_DRAFT already carries school along with
+ * everything else and is the more authoritative source.
+ */
+const PENDING_SCHOOL_STORAGE_KEY = "mqi-pending-school";
+
 function initialState(): SurveyState {
   return {
     school: null,
@@ -473,6 +491,19 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     const id = typeof window !== "undefined" ? localStorage.getItem(ACTIVE_SURVEY_STORAGE_KEY) : null;
     if (!id) {
+      // No survey has started yet (no surveyId minted) — the only thing
+      // that could still be sitting in memory from before a forced reload
+      // is a school picked on find-school but not yet followed by a method
+      // choice. See PENDING_SCHOOL_STORAGE_KEY for why this needs its own
+      // recovery path separate from the draft/surveyId one below.
+      const pending = typeof window !== "undefined" ? localStorage.getItem(PENDING_SCHOOL_STORAGE_KEY) : null;
+      if (pending) {
+        try {
+          dispatch({ type: "SET_SCHOOL", school: JSON.parse(pending) });
+        } catch {
+          localStorage.removeItem(PENDING_SCHOOL_STORAGE_KEY);
+        }
+      }
       setHydrated(true);
       return;
     }
@@ -505,6 +536,15 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
     if (state.surveyId) localStorage.setItem(ACTIVE_SURVEY_STORAGE_KEY, state.surveyId);
     else localStorage.removeItem(ACTIVE_SURVEY_STORAGE_KEY);
   }, [state.surveyId]);
+
+  // See PENDING_SCHOOL_STORAGE_KEY — self-cleaning: cleared automatically
+  // once RESET nulls school back out (submit success, or discard-all-the-
+  // way-back), no separate cleanup call needed anywhere else.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (state.school) localStorage.setItem(PENDING_SCHOOL_STORAGE_KEY, JSON.stringify(state.school));
+    else localStorage.removeItem(PENDING_SCHOOL_STORAGE_KEY);
+  }, [state.school]);
 
   const value = useMemo<SurveyContextValue>(
     () => ({

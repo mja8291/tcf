@@ -83,10 +83,26 @@ self.addEventListener("install", (event) => {
       // start downloading before connectivity dropped. Firing everything
       // together gives pages the same head start as static assets instead
       // of queuing behind them.
+      // /api/schools rides in this same batch — without it, a surveyor
+      // opening the app for the very first time offline (or right after a
+      // redeploy, which wipes the previous version's API_CACHE along with
+      // everything else in `activate` below) can load every precached page
+      // shell fine and still get stuck on step one: the school picker has
+      // nothing to search, because networkFirst's cache-fallback (see below)
+      // only has something to fall back to once a page has fetched it
+      // successfully at least once while online. Confirmed live: a clean
+      // install + immediate offline test reproduced exactly this — Find
+      // school rendered, but typing a name returned nothing because
+      // /api/schools had never been cached. /api/dashboard is deliberately
+      // left out — it's an office-review feature, not part of starting a
+      // survey in the field, and its data is both larger and more
+      // time-sensitive than a school list that rarely changes.
+      const apiCache = await caches.open(API_CACHE);
       const pagesCache = await caches.open(PAGES_CACHE);
       await Promise.allSettled([
         ...["/manifest.webmanifest", ...PRECACHE_ASSETS].map((url) => staticCache.add(url)),
         ...PRECACHE_PAGES.map((url) => pagesCache.add(url)),
+        apiCache.add("/api/schools"),
       ]);
     })()
   );
