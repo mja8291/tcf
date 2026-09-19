@@ -282,7 +282,11 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       current.type = "Classroom";
       current.classroomGrade = action.grade;
       current.classroomSection = action.section;
-      current.name = `${action.grade} ${action.section}`;
+      // Section is optional for single-instance rooms (Library, etc. — see
+      // CLASSROOM_GRADES_WITH_OPTIONAL_SECTION) and arrives as "" rather
+      // than a real value there, so skip the separator instead of leaving a
+      // trailing space in the location name.
+      current.name = action.section ? `${action.grade} ${action.section}` : action.grade;
       return { ...state, m2: { ...state.m2, current } };
     }
     case "M2_CURRENT_SET_SCORE":

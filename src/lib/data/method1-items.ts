@@ -59,6 +59,10 @@ export const METHOD1_ITEMS: RubricItem[] = [
       { condition: "Ok", label: "Roof Access Available" },
       { condition: "Poor", label: "Roof Access Not Available" },
     ],
+    // Either there's roof access or there isn't — "not applicable" has no
+    // meaning here, unlike an item that might genuinely be absent at a
+    // given location.
+    hideNA: true,
   },
   { name: "Cracks visibility in roof", category: "Safety", weight: 14 },
   { name: "Cracks visibility in columns", category: "Safety", weight: 7 },

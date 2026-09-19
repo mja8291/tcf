@@ -55,13 +55,22 @@ export async function getDashboardData(): Promise<DashboardData> {
       if (s) fromM2.push(s);
     }
 
-    // Dashboard shows current state only — keep the most recent submission per school.
-    const bySchool = new Map<string, CapturedSchool>();
+    // Dashboard shows current state only — keep the most recent submission
+    // per (school, method) pair, not per school alone. A Method 1 and a
+    // Method 2 assessment of the same campus are two independently valid
+    // records, not one superseding the other — confirmed reported: both
+    // submissions genuinely landed in their own Sheets tab, but keying
+    // purely on schoolId meant whichever had the later timestamp silently
+    // replaced the other here, making the earlier one look never submitted.
+    // Two submissions of the *same* method for the same school still
+    // collapse to the latest one (a genuine re-do/correction).
+    const byKey = new Map<string, CapturedSchool>();
     for (const s of [...fromM1, ...fromM2]) {
-      const existing = bySchool.get(s.schoolId);
-      if (!existing || s.date > existing.date) bySchool.set(s.schoolId, s);
+      const key = `${s.schoolId}::${s.method}`;
+      const existing = byKey.get(key);
+      if (!existing || s.date > existing.date) byKey.set(key, s);
     }
-    captured = [...bySchool.values()];
+    captured = [...byKey.values()];
   } else {
     captured = MOCK_CAPTURED_SCHOOLS;
   }
@@ -129,10 +138,15 @@ function summarize(totalSchools: number, captured: CapturedSchool[]): DashboardD
     .map(([region, { total, count }]) => ({ region, average: total / count, count }))
     .sort((a, b) => a.region.localeCompare(b.region));
 
+  // "Captured" counts distinct schools, not rows — a school with both a
+  // Method 1 and a Method 2 submission is one captured school, appearing
+  // twice in `schools` below (see the byKey dedup above), not two.
+  const uniqueSchoolsCaptured = new Set(captured.map((s) => s.schoolId)).size;
+
   return {
-    totalSchools: Math.max(totalSchools, captured.length),
-    captured: captured.length,
-    pending: Math.max(totalSchools, captured.length) - captured.length,
+    totalSchools: Math.max(totalSchools, uniqueSchoolsCaptured),
+    captured: uniqueSchoolsCaptured,
+    pending: Math.max(totalSchools, uniqueSchoolsCaptured) - uniqueSchoolsCaptured,
     averageScore,
     overallBand: ratingBand(averageScore),
     averageMajorScore,

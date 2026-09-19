@@ -113,26 +113,52 @@ async function getHeader(spreadsheetId: string, tab: string, desiredHeader: stri
   return headerCache.get(cacheKey) ?? desiredHeader;
 }
 
-/** Appends one row, mapping `fields` to columns by header name (case-insensitive) rather than fixed letters. */
+/**
+ * Appends one or more rows in a single API call, mapping each `fields`
+ * object to columns by header name (case-insensitive) rather than fixed
+ * letters. Batching matters here, not just for tidiness: a Method 2 survey
+ * with N locations used to mean N *sequential* append calls (plus one more
+ * per photo/note), each a real network round-trip to the Sheets API. On a
+ * survey with several locations and photos that easily added up to 20-40+
+ * sequential calls in one request, well past Vercel's serverless function
+ * timeout (confirmed as the likely cause of reported Method 2-specific
+ * submission errors — Method 1 is always exactly one row/one call, so it
+ * never hit this) — and a request killed partway through left some rows
+ * written and others not, so a client retry of the same payload duplicated
+ * whichever rows had already landed. One batched call per submission means
+ * every row for it succeeds or fails together.
+ */
+async function appendRowsByHeader(
+  spreadsheetId: string,
+  tab: string,
+  desiredHeader: string[],
+  fieldsList: Record<string, string>[]
+) {
+  if (fieldsList.length === 0) return;
+  const header = await getHeader(spreadsheetId, tab, desiredHeader);
+  const lower = header.map((h) => h.toLowerCase());
+  const rows = fieldsList.map((fields) =>
+    header.map((_, i) => {
+      const key = Object.keys(fields).find((k) => k.toLowerCase() === lower[i]);
+      return key ? fields[key] : "";
+    })
+  );
+  const sheets = await getSheetsClient();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: tab,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: rows },
+  });
+}
+
 async function appendRowByHeader(
   spreadsheetId: string,
   tab: string,
   desiredHeader: string[],
   fields: Record<string, string>
 ) {
-  const header = await getHeader(spreadsheetId, tab, desiredHeader);
-  const lower = header.map((h) => h.toLowerCase());
-  const row = header.map((_, i) => {
-    const key = Object.keys(fields).find((k) => k.toLowerCase() === lower[i]);
-    return key ? fields[key] : "";
-  });
-  const sheets = await getSheetsClient();
-  await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    range: tab,
-    valueInputOption: "USER_ENTERED",
-    requestBody: { values: [row] },
-  });
+  await appendRowsByHeader(spreadsheetId, tab, desiredHeader, [fields]);
 }
 
 function requireSpreadsheetId(): string {
@@ -200,7 +226,7 @@ export async function appendMethod1Response(payload: SubmitPayload) {
 export async function appendMethod2Response(payload: SubmitPayload) {
   const spreadsheetId = requireSpreadsheetId();
   if (!payload.locations || payload.locations.length === 0) return;
-  for (const loc of payload.locations) {
+  const fieldsList = payload.locations.map((loc) => {
     const fields: Record<string, string> = {
       ...commonFields(payload, loc.name),
       "Floor Level": loc.floorLevel,
@@ -211,23 +237,33 @@ export async function appendMethod2Response(payload: SubmitPayload) {
     for (const [itemName, condition] of Object.entries(loc.scores)) {
       fields[itemName] = condition;
     }
-    await appendRowByHeader(spreadsheetId, METHOD2_TAB, METHOD2_HEADER, fields);
-  }
+    return fields;
+  });
+  await appendRowsByHeader(spreadsheetId, METHOD2_TAB, METHOD2_HEADER, fieldsList);
 }
 
-export async function appendAttachmentRow(params: {
-  surveyId: string;
-  itemName: string;
-  locationName: string;
-  photoUrl?: string;
-  note?: string;
-}) {
+/** One batched call for every attachment row in a submission — see appendRowsByHeader for why batching (not one call per photo/note) is what makes this reliable. */
+export async function appendAttachmentRows(
+  rows: {
+    surveyId: string;
+    itemName: string;
+    locationName: string;
+    photoUrl?: string;
+    note?: string;
+  }[]
+) {
+  if (rows.length === 0) return;
   const spreadsheetId = requireSpreadsheetId();
-  await appendRowByHeader(spreadsheetId, ATTACHMENTS_TAB, ATTACHMENTS_HEADER, {
-    "Survey ID": params.surveyId,
-    "Item Name": params.itemName,
-    "Location Name": params.locationName,
-    "Photo URL": params.photoUrl ?? "",
-    Note: params.note ?? "",
-  });
+  await appendRowsByHeader(
+    spreadsheetId,
+    ATTACHMENTS_TAB,
+    ATTACHMENTS_HEADER,
+    rows.map((params) => ({
+      "Survey ID": params.surveyId,
+      "Item Name": params.itemName,
+      "Location Name": params.locationName,
+      "Photo URL": params.photoUrl ?? "",
+      Note: params.note ?? "",
+    }))
+  );
 }

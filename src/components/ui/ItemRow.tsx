@@ -72,7 +72,7 @@ export function ItemRow({
           </IconButton>
         </div>
       </div>
-      <ConditionPills value={value} onChange={onScoreChange} options={item.conditionOverride} />
+      <ConditionPills value={value} onChange={onScoreChange} options={item.conditionOverride} hideNA={item.hideNA} />
       {compressing ? <div className="text-[11px] text-ink-faint mt-1">Compressing photo…</div> : null}
       {photoError ? <div className="text-[11px] text-band-poor mt-1">{photoError}</div> : null}
       <PhotoThumbList photos={photos} onRemovePhoto={onRemovePhoto} onRetryPhoto={onRetryPhoto} />

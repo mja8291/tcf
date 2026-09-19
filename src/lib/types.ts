@@ -27,6 +27,8 @@ export interface RubricItem {
    * narrower, relabeled set of buttons. N/A remains selectable regardless.
    */
   conditionOverride?: { condition: Exclude<Condition, "N/A">; label: string }[];
+  /** Drops N/A from the picker entirely — for an item where "not applicable" never makes sense (e.g. "Access to roof area /tanks": you're standing at the roof access, so it's either there or it isn't). */
+  hideNA?: boolean;
 }
 
 export type WorkCategory =

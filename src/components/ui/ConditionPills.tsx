@@ -6,13 +6,17 @@ import type { Condition } from "@/lib/types";
 interface ConditionPillsProps {
   value: Condition | undefined;
   onChange: (value: Condition) => void;
-  /** From RubricItem.conditionOverride — restricts + relabels the pills for items with fewer rubric states. N/A is always appended. */
+  /** From RubricItem.conditionOverride — restricts + relabels the pills for items with fewer rubric states. N/A is appended unless hideNA is set. */
   options?: { condition: Exclude<Condition, "N/A">; label: string }[];
+  /** From RubricItem.hideNA — see there for why an item would drop N/A entirely. */
+  hideNA?: boolean;
 }
 
-export function ConditionPills({ value, onChange, options }: ConditionPillsProps) {
+export function ConditionPills({ value, onChange, options, hideNA }: ConditionPillsProps) {
   const pills: { condition: Condition; label: string }[] = options
-    ? [...options, { condition: "N/A", label: "N/A" }]
+    ? hideNA
+      ? options
+      : [...options, { condition: "N/A", label: "N/A" }]
     : CONDITIONS.map((c) => ({ condition: c, label: c }));
 
   return (

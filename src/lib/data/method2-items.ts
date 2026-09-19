@@ -18,7 +18,8 @@ import type { Condition, FloorLevel, LocationType, Method2Group, WorkCategory } 
  *   - New Electrical Works item "Drinking Water Cooler & Filter *" (2%),
  *     funded by Cabinet and Soft board each dropping 3% -> 2%.
  *   - Motor (Water pump)'s locations changed from [External Development,
- *     Other Room] to [Corridor & Stairs] only.
+ *     Other Room] to [Corridor & Stairs] only, then back to [External
+ *     Development] only (2026-09-19 rubric correction).
  *   - CC Jaali's locations narrowed from [Toilet, Corridor, Facade, Other
  *     Room] to [Corridor, Facade] only.
  *   - "Toilet Flooring condition" renamed to "Toilet Tile condition".
@@ -104,7 +105,7 @@ export const METHOD2_GROUPS: Method2Group[] = [
     weight: 4,
     principalMaintained: true,
     workCategory: "Plumbing Works",
-    locations: [CORRIDOR],
+    locations: [EXT_DEV],
   }),
 
   // Electrical Works — 11 items, Functionality except Electrical Wiring/Connections (Safety)
@@ -299,6 +300,10 @@ export const METHOD2_GROUPS: Method2Group[] = [
       { condition: "Ok", label: "Roof Access Available" },
       { condition: "Poor", label: "Roof Access Not Available" },
     ],
+    // Either there's roof access or there isn't — "not applicable" has no
+    // meaning here, unlike an item that might genuinely be absent at a
+    // given location.
+    hideNA: true,
   }),
   worst({
     name: "Cracks visibility in roof",
@@ -425,7 +430,13 @@ export const LOCATION_TYPES: LocationType[] = [
 
 export const FLOOR_LEVELS: FloorLevel[] = ["External", "Ground", "First", "Second", "Third", "Fourth", "Roof"];
 
-const GROUND_LIKE_TYPES: LocationType[] = [CLASSROOM, CORRIDOR, TOILET, ROOF, OTHER_ROOM, LAB];
+// Roof is deliberately excluded here (2026-09-19, per the rubric sheet's
+// "Level Option Page" — Roof's own row has no location-type options at
+// all): it's already its own floor level with its own auto-created
+// location (see chooseFloor's Roof special-case in m2/page.tsx), so
+// offering it again as a type card *within* Ground/First/etc. was a
+// redundant, confusing duplicate route to the exact same location shape.
+const GROUND_LIKE_TYPES: LocationType[] = [CLASSROOM, CORRIDOR, TOILET, OTHER_ROOM, LAB];
 
 /** Which location types are offered on a given floor. Empty = skip the Location page (Roof floor only). */
 export const FLOOR_LOCATION_TYPES: Record<FloorLevel, LocationType[]> = {
@@ -465,7 +476,24 @@ export const LOCATION_NAME_OPTIONS: Partial<Record<LocationType, string[]>> = {
 // M2_SET_CLASSROOM in survey-context.tsx, name = `${grade} ${section}`).
 // Nursery slots in as an additional grade, pairing with a section like
 // every other grade, rather than as a one-off special case.
-export const CLASSROOM_GRADES = ["Nursery", "KG", ...Array.from({ length: 12 }, (_, i) => `Class ${i + 1}`)];
+/**
+ * Library/Art Room/Art Room-Library (2026-09-19) aren't actual grades, but
+ * they're picked from this same list rather than getting their own page —
+ * same precedent as Nursery above. Unlike every real grade, a campus
+ * normally has just one of each, so a Section pick would be forced busywork
+ * for the common case — see CLASSROOM_GRADES_WITH_OPTIONAL_SECTION, which
+ * is what actually excuses Continue from requiring one for these three.
+ */
+export const CLASSROOM_GRADES = [
+  "Nursery",
+  "KG",
+  ...Array.from({ length: 12 }, (_, i) => `Class ${i + 1}`),
+  "Library",
+  "Art Room/Library",
+  "Art Room",
+];
+/** Grades that don't need a Section to disambiguate — a campus has one of each of these, not several. */
+export const CLASSROOM_GRADES_WITH_OPTIONAL_SECTION = ["Library", "Art Room/Library", "Art Room"];
 /** Campuses use either lettered or coloured sections — offer both, ASM picks whichever applies. */
 export const CLASSROOM_SECTIONS = ["A", "B", "C", "D", "E", "Red", "Yellow", "Green", "Blue"];
 

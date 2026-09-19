@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 import { sheetsConfigured } from "@/lib/sheets/client";
-import { appendAttachmentRow, appendMethod1Response, appendMethod2Response } from "@/lib/sheets/responses";
+import { appendAttachmentRows, appendMethod1Response, appendMethod2Response } from "@/lib/sheets/responses";
 import type { SubmitPayload } from "@/lib/submit";
+
+// Batching (see appendRowsByHeader) cut this down to ~2 Sheets API calls per
+// submission regardless of location/photo count, but a cold Google-auth
+// client plus a large Method 2 survey can still take a few seconds — this
+// gives it real headroom instead of racing Vercel's much shorter default.
+// Vercel silently caps this at whatever the project's plan actually allows,
+// so it's harmless to ask for more than a given plan grants.
+export const maxDuration = 60;
 
 /**
  * Plain JSON now, not multipart — since Round 3 Task 8, every photo is
@@ -26,21 +34,27 @@ export async function POST(req: Request) {
     await appendMethod2Response(payload);
   }
 
-  // One attachments row per item that has a photo and/or a note.
+  // One attachments row per item that has a photo and/or a note, all in a
+  // single batched call — see appendRowsByHeader for why not one call per
+  // key (this loop used to await appendAttachmentRow individually, adding
+  // one more sequential network round-trip per photo/note on top of the
+  // per-location ones above).
   const noteByKey = new Map(payload.notes.map((n) => [n.attachmentKey, n]));
   const photoByKey = new Map(payload.photoKeys.map((p) => [p.attachmentKey, p]));
   const attachmentKeys = new Set([...photoByKey.keys(), ...noteByKey.keys()]);
-  for (const key of attachmentKeys) {
-    const photoEntry = photoByKey.get(key);
-    const noteEntry = noteByKey.get(key);
-    await appendAttachmentRow({
-      surveyId: payload.surveyId,
-      itemName: photoEntry?.itemName ?? noteEntry?.itemName ?? "",
-      locationName: photoEntry?.locationName ?? noteEntry?.locationName ?? "",
-      photoUrl: photoEntry?.url,
-      note: noteEntry?.note,
-    });
-  }
+  await appendAttachmentRows(
+    [...attachmentKeys].map((key) => {
+      const photoEntry = photoByKey.get(key);
+      const noteEntry = noteByKey.get(key);
+      return {
+        surveyId: payload.surveyId,
+        itemName: photoEntry?.itemName ?? noteEntry?.itemName ?? "",
+        locationName: photoEntry?.locationName ?? noteEntry?.locationName ?? "",
+        photoUrl: photoEntry?.url,
+        note: noteEntry?.note,
+      };
+    })
+  );
 
   return NextResponse.json({ ok: true, surveyId: payload.surveyId, persisted: true });
 }

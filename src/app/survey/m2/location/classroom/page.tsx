@@ -8,7 +8,12 @@ import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { BottomBar } from "@/components/ui/BottomBar";
 import { useSurvey } from "@/lib/survey-context";
-import { CLASSROOM_GRADES, CLASSROOM_SECTIONS, FLOOR_LEVELS } from "@/lib/data/method2-items";
+import {
+  CLASSROOM_GRADES,
+  CLASSROOM_GRADES_WITH_OPTIONAL_SECTION,
+  CLASSROOM_SECTIONS,
+  FLOOR_LEVELS,
+} from "@/lib/data/method2-items";
 import type { FloorLevel } from "@/lib/types";
 
 function isFloorLevel(v: string | null): v is FloorLevel {
@@ -22,6 +27,11 @@ function Method2ClassroomContent() {
   const floor = isFloorLevel(floorParam) ? floorParam : null;
   const [grade, setGrade] = useState("");
   const [section, setSection] = useState("");
+  // Library/Art Room/Art Room-Library are single-instance rooms, not
+  // sectioned classes — a campus doesn't have "Library, Section B" the way
+  // it has "Class 4, Section B", so Continue shouldn't withhold on a Section
+  // pick that has nothing meaningful to disambiguate for these.
+  const sectionRequired = !CLASSROOM_GRADES_WITH_OPTIONAL_SECTION.includes(grade);
 
   useEffect(() => {
     if (!floor) router.replace("/survey/m2");
@@ -54,7 +64,7 @@ function Method2ClassroomContent() {
         </select>
       </Field>
 
-      <Field label="Section">
+      <Field label={sectionRequired ? "Section" : "Section (optional)"}>
         <select
           value={section}
           onChange={(e) => setSection(e.target.value)}
@@ -70,7 +80,7 @@ function Method2ClassroomContent() {
       </Field>
 
       <BottomBar>
-        <Button onClick={start} disabled={!grade || !section}>
+        <Button onClick={start} disabled={!grade || (sectionRequired && !section)}>
           Continue
         </Button>
       </BottomBar>
