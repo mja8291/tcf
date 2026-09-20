@@ -1,4 +1,4 @@
-import type { Category, PowerSupply } from "@/lib/types";
+import type { BuildingStructure, Category, PowerSupply, StructuralConcern } from "@/lib/types";
 
 export const OATH_TEXT =
   "I undertake to affirm that I am the Administration & Support Manager of the above mentioned school and that the responses provided in the assessment form are in accordance with the provided instructions and guidance. The provided ratings are, to the best of my knowledge, a true and actual representation of the school condition.";
@@ -9,6 +9,19 @@ export const POWER_SUPPLY_OPTIONS: PowerSupply[] = [
   "Hybrid (Both Grid & Solar)",
   "No Power",
   "Other",
+];
+
+export const STRUCTURAL_CONCERN_QUESTION =
+  "Did you observe any sign of being structurally sensitive or dangerous in the building?";
+export const STRUCTURAL_CONCERN_OPTIONS: StructuralConcern[] = ["YES", "NO"];
+
+export const BUILDING_STRUCTURE_QUESTION = "Please suggest structural type of the building.";
+export const BUILDING_STRUCTURE_OPTIONS: BuildingStructure[] = [
+  "Load-Bearing",
+  "RCC",
+  "Precast",
+  "Hybrid (RCC+Precast)",
+  "Hybrid (Load-Bearing+RCC)",
 ];
 
 interface RatingDefinition {

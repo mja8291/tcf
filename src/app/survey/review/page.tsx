@@ -12,8 +12,15 @@ import { BottomBar } from "@/components/ui/BottomBar";
 import { useSurvey } from "@/lib/survey-context";
 import { CATEGORIES, CRITICAL_ITEMS, ratingBand, scoreMethod1, scoreMethod2 } from "@/lib/scoring";
 import { isMethod2LocationComplete } from "@/lib/data/method2-items";
-import { OATH_TEXT, POWER_SUPPLY_OPTIONS } from "@/lib/data/content";
-import type { PowerSupply } from "@/lib/types";
+import {
+  BUILDING_STRUCTURE_OPTIONS,
+  BUILDING_STRUCTURE_QUESTION,
+  OATH_TEXT,
+  POWER_SUPPLY_OPTIONS,
+  STRUCTURAL_CONCERN_OPTIONS,
+  STRUCTURAL_CONCERN_QUESTION,
+} from "@/lib/data/content";
+import type { BuildingStructure, PowerSupply, StructuralConcern } from "@/lib/types";
 import { buildSubmission, countUnresolvedPhotos } from "@/lib/submit";
 import { queueSubmission, deleteDraft } from "@/lib/offline/db";
 import { DRAFTS_CHANGED_EVENT } from "@/lib/draft";
@@ -23,8 +30,11 @@ import { FileSpreadsheet, FileText } from "lucide-react";
 
 export default function ReviewPage() {
   const router = useRouter();
-  const { state, hydrated, setPowerSupply, setComplaints, setLastSurveyId } = useSurvey();
+  const { state, hydrated, setPowerSupply, setStructuralConcern, setBuildingStructure, setComplaints, setLastSurveyId } =
+    useSurvey();
   const [powerSupply, setLocalPowerSupply] = useState<PowerSupply | "">(state.powerSupply);
+  const [structuralConcern, setLocalStructuralConcern] = useState<StructuralConcern | "">(state.structuralConcern);
+  const [buildingStructure, setLocalBuildingStructure] = useState<BuildingStructure | "">(state.buildingStructure);
   const [complaints, setLocalComplaints] = useState(state.complaints);
   const [oath, setOath] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -90,7 +100,13 @@ export default function ReviewPage() {
   const { uploading: photosUploading, failed: photosFailed } = countUnresolvedPhotos(
     state.method === 1 ? [state.m1.photos] : state.m2.locations.map((l) => l.photos)
   );
-  const canSubmit = oath && Boolean(powerSupply) && !submitting && photosUploading === 0;
+  const canSubmit =
+    oath &&
+    Boolean(powerSupply) &&
+    Boolean(structuralConcern) &&
+    Boolean(buildingStructure) &&
+    !submitting &&
+    photosUploading === 0;
 
   // Once Submit is tapped and actually accepted — synced immediately, or
   // queued for later — the assessment is done, not still a draft: nothing
@@ -108,14 +124,24 @@ export default function ReviewPage() {
   }
 
   async function submit() {
-    if (!canSubmit || !powerSupply || !state.school || !state.method) return;
+    if (!canSubmit || !powerSupply || !structuralConcern || !buildingStructure || !state.school || !state.method) return;
     setSubmitting(true);
     setError(null);
     setPowerSupply(powerSupply);
+    setStructuralConcern(structuralConcern);
+    setBuildingStructure(buildingStructure);
     setComplaints(complaints);
 
     const submission = buildSubmission(
-      { ...state, school: state.school, method: state.method, powerSupply, complaints },
+      {
+        ...state,
+        school: state.school,
+        method: state.method,
+        powerSupply,
+        structuralConcern,
+        buildingStructure,
+        complaints,
+      },
       result
     );
 
@@ -184,10 +210,15 @@ export default function ReviewPage() {
     setExporting(kind);
     try {
       const filename = `${draftExportFilenameBase(state)}.${kind === "excel" ? "xlsx" : "pdf"}`;
-      const blob =
-        kind === "excel"
-          ? await buildDraftExcelBlob({ state, result, powerSupply: powerSupply || "", complaints })
-          : await buildDraftPdfBlob({ state, result, powerSupply: powerSupply || "", complaints });
+      const params = {
+        state,
+        result,
+        powerSupply: powerSupply || "",
+        structuralConcern: structuralConcern || "",
+        buildingStructure: buildingStructure || "",
+        complaints,
+      };
+      const blob = kind === "excel" ? await buildDraftExcelBlob(params) : await buildDraftPdfBlob(params);
       downloadBlob(blob, filename);
     } finally {
       setExporting(null);
@@ -268,6 +299,36 @@ export default function ReviewPage() {
           {POWER_SUPPLY_OPTIONS.map((p) => (
             <option key={p} value={p}>
               {p}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field label={STRUCTURAL_CONCERN_QUESTION}>
+        <select
+          value={structuralConcern}
+          onChange={(e) => setLocalStructuralConcern(e.target.value as StructuralConcern)}
+          className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+        >
+          <option value="">Select an answer</option>
+          {STRUCTURAL_CONCERN_OPTIONS.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field label={BUILDING_STRUCTURE_QUESTION}>
+        <select
+          value={buildingStructure}
+          onChange={(e) => setLocalBuildingStructure(e.target.value as BuildingStructure)}
+          className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+        >
+          <option value="">Select structural type</option>
+          {BUILDING_STRUCTURE_OPTIONS.map((o) => (
+            <option key={o} value={o}>
+              {o}
             </option>
           ))}
         </select>

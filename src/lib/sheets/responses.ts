@@ -45,7 +45,29 @@ const TRAILING_HEADER = [
   "Time Taken (seconds)",
   ...CRITICAL_ITEMS.map(criticalColumn),
   "Paused Duration (seconds)",
+  "Structural Concern Observed",
+  "Suggested Structural Type",
 ];
+
+/**
+ * Columns added after the live "Method 1/2 Responses" tabs already existed.
+ * ensureTab deliberately never rewrites an existing tab's header (someone may
+ * have reordered/renamed columns), which means a brand-new field would
+ * otherwise have no column to land in and appendRowsByHeader would silently
+ * drop it. These specific names are the one exception: if an existing tab
+ * lacks them, they're appended at the end of its header row.
+ */
+const AUTO_ADD_COLUMNS = ["Structural Concern Observed", "Suggested Structural Type"];
+
+function columnLetter(n: number): string {
+  let s = "";
+  while (n > 0) {
+    const r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
 
 const METHOD1_HEADER = [...COMMON_HEADER, ...METHOD1_ITEMS.map((i) => i.name), ...TRAILING_HEADER];
 const METHOD2_HEADER = [
@@ -101,10 +123,52 @@ async function ensureTab(spreadsheetId: string, tab: string, desiredHeader: stri
       });
       headerCache.set(cacheKey, desiredHeader);
     } else {
-      headerCache.set(cacheKey, existingHeader);
+      const { header, complete } = await addMissingColumns(spreadsheetId, tab, existingHeader, desiredHeader);
+      headerCache.set(cacheKey, header);
+      // Not cached as "ensured" if adding a column failed, so a later request
+      // retries it instead of the answer being dropped until the server
+      // instance happens to restart. The submission itself still goes ahead.
+      if (!complete) return;
     }
   }
   ensuredTabs.add(cacheKey);
+}
+
+async function addMissingColumns(
+  spreadsheetId: string,
+  tab: string,
+  existingHeader: string[],
+  desiredHeader: string[]
+): Promise<{ header: string[]; complete: boolean }> {
+  const have = new Set(existingHeader.map((h) => h.toLowerCase()));
+  const missing = AUTO_ADD_COLUMNS.filter((c) => desiredHeader.includes(c) && !have.has(c.toLowerCase()));
+  if (missing.length === 0) return { header: existingHeader, complete: true };
+
+  try {
+    const sheets = await getSheetsClient();
+    const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: "sheets.properties" });
+    const props = (meta.data.sheets ?? []).find((s) => s.properties?.title === tab)?.properties;
+    const needed = existingHeader.length + missing.length;
+    const gridColumns = props?.gridProperties?.columnCount ?? 0;
+    // A sheet's grid has a fixed column count; writing past it fails outright.
+    if (props?.sheetId != null && gridColumns < needed) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{ appendDimension: { sheetId: props.sheetId, dimension: "COLUMNS", length: needed - gridColumns } }],
+        },
+      });
+    }
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${tab}'!${columnLetter(existingHeader.length + 1)}1`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values: [missing] },
+    });
+    return { header: [...existingHeader, ...missing], complete: true };
+  } catch {
+    return { header: existingHeader, complete: false };
+  }
 }
 
 async function getHeader(spreadsheetId: string, tab: string, desiredHeader: string[]): Promise<string[]> {
@@ -186,6 +250,9 @@ function commonFields(payload: SubmitPayload, locationName = ""): Record<string,
     "Accompanying APM": payload.apm,
     "School Principal": payload.principal,
     "Power Supply": payload.powerSupply,
+    // `?? ""`: a submission queued by an older app version predates these.
+    "Structural Concern Observed": payload.structuralConcern ?? "",
+    "Suggested Structural Type": payload.buildingStructure ?? "",
     "Location Name": locationName,
     "Major Complaints": payload.complaints,
     "Overall Score": payload.overall === null ? "" : String(Math.round(payload.overall)),

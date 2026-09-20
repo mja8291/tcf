@@ -29,6 +29,8 @@ interface DraftExportParams {
   state: SurveyState;
   result: ScoreResult;
   powerSupply: string;
+  structuralConcern: string;
+  buildingStructure: string;
   complaints: string;
 }
 
@@ -105,7 +107,14 @@ export async function buildDraftExcelBlob({ state }: DraftExportParams): Promise
   return new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }
 
-export async function buildDraftPdfBlob({ state, result, powerSupply, complaints }: DraftExportParams): Promise<Blob> {
+export async function buildDraftPdfBlob({
+  state,
+  result,
+  powerSupply,
+  structuralConcern,
+  buildingStructure,
+  complaints,
+}: DraftExportParams): Promise<Blob> {
   const method = state.method === 2 ? 2 : 1;
   const items = method === 1 ? METHOD1_ITEMS : METHOD2_GROUPS;
   const itemValues: Record<string, string> =
@@ -132,6 +141,8 @@ export async function buildDraftPdfBlob({ state, result, powerSupply, complaints
     asm: state.asm,
     principal: state.principal,
     powerSupply,
+    structuralConcern,
+    buildingStructure,
     complaints,
     overall: result.overall,
     functionality: result.categories.Functionality.score,

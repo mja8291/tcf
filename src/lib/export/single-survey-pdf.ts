@@ -18,6 +18,9 @@ export interface SingleSurveyPdfInput {
   asm: string;
   principal: string;
   powerSupply: string;
+  /** "" for a survey submitted before these two questions existed. */
+  structuralConcern: string;
+  buildingStructure: string;
   complaints: string;
   overall: number | null;
   functionality: number | null;
@@ -96,6 +99,8 @@ export async function buildSingleSurveyPdf(input: SingleSurveyPdfInput): Promise
     ["Responding ASM", input.asm || "—"],
     ["School Principal", input.principal || "—"],
     ["Power Supply", input.powerSupply || "—"],
+    ["Structural concern observed", input.structuralConcern || "—"],
+    ["Suggested structural type", input.buildingStructure || "—"],
     ["Start Time", input.startTime ? new Date(input.startTime).toLocaleString() : "—"],
     ["Finish Time", input.endTime ? new Date(input.endTime).toLocaleString() : "—"],
     ["Time Taken", input.timeTakenSeconds === null ? "—" : formatDurationFriendly(input.timeTakenSeconds)],

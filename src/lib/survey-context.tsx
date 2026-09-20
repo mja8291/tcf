@@ -6,10 +6,12 @@ import type {
   Condition,
   FloorLevel,
   LocationType,
+  BuildingStructure,
   Method2Location,
   PhotoAsset,
   PowerSupply,
   School,
+  StructuralConcern,
 } from "@/lib/types";
 import { UNNAMED_LOCATION_TYPES } from "@/lib/data/method2-items";
 
@@ -32,6 +34,8 @@ export interface SurveyState {
   apm: string;
   principal: string;
   powerSupply: PowerSupply | "";
+  structuralConcern: StructuralConcern | "";
+  buildingStructure: BuildingStructure | "";
   complaints: string;
   m1: {
     scores: Record<string, Condition>;
@@ -110,6 +114,8 @@ function initialState(): SurveyState {
     apm: "",
     principal: "",
     powerSupply: "",
+    structuralConcern: "",
+    buildingStructure: "",
     complaints: "",
     m1: { scores: {}, photos: {}, notes: {} },
     m2: { locations: [], current: null },
@@ -155,6 +161,8 @@ type Action =
   | { type: "SET_METHOD"; method: 1 | 2 }
   | { type: "SET_RESPONDENT"; asm: string; apm: string; principal: string }
   | { type: "SET_POWER_SUPPLY"; value: PowerSupply }
+  | { type: "SET_STRUCTURAL_CONCERN"; value: StructuralConcern }
+  | { type: "SET_BUILDING_STRUCTURE"; value: BuildingStructure }
   | { type: "SET_COMPLAINTS"; value: string }
   | { type: "SET_LAST_SURVEY_ID"; surveyId: string | null }
   | { type: "M1_SET_SCORE"; name: string; value: Condition }
@@ -233,6 +241,10 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       return { ...state, asm: action.asm, apm: action.apm, principal: action.principal };
     case "SET_POWER_SUPPLY":
       return { ...state, powerSupply: action.value };
+    case "SET_STRUCTURAL_CONCERN":
+      return { ...state, structuralConcern: action.value };
+    case "SET_BUILDING_STRUCTURE":
+      return { ...state, buildingStructure: action.value };
     case "SET_COMPLAINTS":
       return { ...state, complaints: action.value };
     case "SET_LAST_SURVEY_ID":
@@ -387,8 +399,11 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       // Wholesale replacement — a draft is a full snapshot (Round 3 Task 9),
       // so there's nothing to merge with whatever's currently live (which
       // should be the freshly-initialized state anyway, since resuming only
-      // happens from the dedicated /survey/resume page).
-      return action.state;
+      // happens from the dedicated /survey/resume page). Laid over
+      // initialState() only so a draft saved before a field existed (e.g.
+      // structuralConcern) resumes with that field defaulted instead of
+      // undefined — every field a draft does carry still wins.
+      return { ...initialState(), ...action.state };
     case "PAUSE_TIMER":
       // No-op if the timer isn't running yet, or is already paused — avoids
       // clobbering an earlier pausedAt (which would lose the time already
@@ -437,6 +452,8 @@ interface SurveyContextValue {
   setMethod: (method: 1 | 2) => void;
   setRespondent: (asm: string, apm: string, principal: string) => void;
   setPowerSupply: (value: PowerSupply) => void;
+  setStructuralConcern: (value: StructuralConcern) => void;
+  setBuildingStructure: (value: BuildingStructure) => void;
   setComplaints: (value: string) => void;
   setLastSurveyId: (surveyId: string | null) => void;
   m1SetScore: (name: string, value: Condition) => void;
@@ -558,6 +575,8 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       setMethod: (method) => dispatch({ type: "SET_METHOD", method }),
       setRespondent: (asm, apm, principal) => dispatch({ type: "SET_RESPONDENT", asm, apm, principal }),
       setPowerSupply: (value) => dispatch({ type: "SET_POWER_SUPPLY", value }),
+      setStructuralConcern: (value) => dispatch({ type: "SET_STRUCTURAL_CONCERN", value }),
+      setBuildingStructure: (value) => dispatch({ type: "SET_BUILDING_STRUCTURE", value }),
       setComplaints: (value) => dispatch({ type: "SET_COMPLAINTS", value }),
       setLastSurveyId: (surveyId) => dispatch({ type: "SET_LAST_SURVEY_ID", surveyId }),
       m1SetScore: (name, value) => dispatch({ type: "M1_SET_SCORE", name, value }),

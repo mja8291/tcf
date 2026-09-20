@@ -18,6 +18,8 @@ export interface FoundSurvey {
   asm: string;
   principal: string;
   powerSupply: string;
+  structuralConcern: string;
+  buildingStructure: string;
   complaints: string;
   overall: number | null;
   functionality: number | null;
@@ -60,6 +62,8 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
       asm: m1Row["Responding ASM"] ?? "",
       principal: m1Row["School Principal"] ?? "",
       powerSupply: m1Row["Power Supply"] ?? "",
+      structuralConcern: m1Row["Structural Concern Observed"] ?? "",
+      buildingStructure: m1Row["Suggested Structural Type"] ?? "",
       complaints: m1Row["Major Complaints"] ?? "",
       overall,
       functionality: num(m1Row["Functionality Score"]),
@@ -107,6 +111,8 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
     asm: first["Responding ASM"] ?? "",
     principal: first["School Principal"] ?? "",
     powerSupply: first["Power Supply"] ?? "",
+    structuralConcern: first["Structural Concern Observed"] ?? "",
+    buildingStructure: first["Suggested Structural Type"] ?? "",
     complaints: first["Major Complaints"] ?? "",
     overall,
     functionality: num(first["Functionality Score"]),

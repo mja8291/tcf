@@ -9,6 +9,15 @@ export type PowerSupply =
   | "No Power"
   | "Other";
 
+export type StructuralConcern = "YES" | "NO";
+
+export type BuildingStructure =
+  | "Load-Bearing"
+  | "RCC"
+  | "Precast"
+  | "Hybrid (RCC+Precast)"
+  | "Hybrid (Load-Bearing+RCC)";
+
 export interface RubricItem {
   /** Canonical item name — used as the key in scores/photos/notes maps and as the Sheets column/attachment key. */
   name: string;

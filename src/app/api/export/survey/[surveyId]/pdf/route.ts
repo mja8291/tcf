@@ -38,6 +38,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ surveyI
     asm: found.asm,
     principal: found.principal,
     powerSupply: found.powerSupply,
+    structuralConcern: found.structuralConcern,
+    buildingStructure: found.buildingStructure,
     complaints: found.complaints,
     overall: found.overall,
     functionality: found.functionality,

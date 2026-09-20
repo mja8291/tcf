@@ -1,4 +1,13 @@
-import type { Condition, FloorLevel, LocationType, PhotoAsset, PowerSupply, School } from "@/lib/types";
+import type {
+  BuildingStructure,
+  Condition,
+  FloorLevel,
+  LocationType,
+  PhotoAsset,
+  PowerSupply,
+  School,
+  StructuralConcern,
+} from "@/lib/types";
 import type { ScoreResult } from "@/lib/types";
 
 interface SubmitLocation {
@@ -20,6 +29,8 @@ interface SubmitState {
   apm: string;
   principal: string;
   powerSupply: PowerSupply;
+  structuralConcern: StructuralConcern;
+  buildingStructure: BuildingStructure;
   complaints: string;
   m1: { scores: Record<string, Condition>; photos: Record<string, PhotoAsset[]>; notes: Record<string, string> };
   m2: { locations: SubmitLocation[] };
@@ -40,6 +51,9 @@ export interface SubmitPayload {
   apm: string;
   principal: string;
   powerSupply: PowerSupply;
+  /** Optional in the type only because a submission queued by an older app version (still sitting in IndexedDB) predates these two — the server treats a missing value as blank. */
+  structuralConcern?: StructuralConcern;
+  buildingStructure?: BuildingStructure;
   complaints: string;
   overall: number | null;
   functionality: number | null;
@@ -179,6 +193,8 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
     apm: state.apm,
     principal: state.principal,
     powerSupply: state.powerSupply,
+    structuralConcern: state.structuralConcern,
+    buildingStructure: state.buildingStructure,
     complaints: state.complaints,
     overall: result.overall,
     functionality: result.categories.Functionality.score,
