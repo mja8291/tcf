@@ -12,17 +12,18 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useSurvey } from "@/lib/survey-context";
 import { usePhotoUploadHandlers } from "@/lib/use-photo-upload-handlers";
 import {
-  WORK_CATEGORIES,
-  method2GroupsForLocationAndCategory,
-  workCategoryCountsForLocation,
+  METHOD2_SECTIONS,
+  method2GroupsForLocationAndSection,
+  sectionCountsForLocation,
 } from "@/lib/data/method2-items";
-import type { WorkCategory } from "@/lib/types";
+import type { Category } from "@/lib/types";
 
 /**
- * Method 2's work-category picker and per-category item-scoring page,
- * merged into one accordion (Round 3 Task 11) — the old m2/score route is
- * gone; this is now the only screen for scoring a location. Sections
- * collapsed by default, one open at a time.
+ * Method 2's section picker and per-section item-group scoring page, merged
+ * into one accordion (Round 3 Task 11) — the old m2/score route is gone;
+ * this is now the only screen for scoring a location. Sections (Safety /
+ * Functionality / Aesthetics — the revised rubric has no Work Category
+ * column) collapsed by default, one open at a time.
  *
  * Satisfies Task 13 together with this: m2/page.tsx's "Locations recorded"
  * list already links a finalized location back here via m2ResumeLocation
@@ -55,7 +56,7 @@ export default function Method2CategoryPage() {
     setPhotoStatus: m2CurrentSetPhotoStatus,
     removePhoto: m2CurrentRemovePhoto,
   });
-  const [openCategory, setOpenCategory] = useState<WorkCategory | null>(null);
+  const [openCategory, setOpenCategory] = useState<Category | null>(null);
   const [attemptedSave, setAttemptedSave] = useState(false);
   const [confirmBack, setConfirmBack] = useState(false);
 
@@ -75,10 +76,10 @@ export default function Method2CategoryPage() {
   if (!current || !current.type) return null;
   const type = current.type;
 
-  const counts = workCategoryCountsForLocation(type);
-  const applicableCategories = WORK_CATEGORIES.filter((wc) => counts[wc] > 0);
+  const counts = sectionCountsForLocation(type);
+  const applicableCategories = METHOD2_SECTIONS.filter((wc) => counts[wc] > 0);
   const categoryStatus = applicableCategories.map((wc) => {
-    const items = method2GroupsForLocationAndCategory(type, wc);
+    const items = method2GroupsForLocationAndSection(type, wc);
     const answered = items.filter((i) => current!.scores[i.name]).length;
     return { wc, items, answered, total: items.length, complete: answered === items.length };
   });
@@ -138,7 +139,7 @@ export default function Method2CategoryPage() {
 
   return (
     <ScreenShell>
-      <TopBar title="Work category" onBack={goBack} />
+      <TopBar title="Score location" onBack={goBack} />
       <ConfirmDialog
         open={confirmBack}
         title="You haven't scored all items"

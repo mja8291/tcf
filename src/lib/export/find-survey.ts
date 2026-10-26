@@ -2,6 +2,8 @@ import "server-only";
 import { readRowsByHeader } from "@/lib/sheets/read";
 import { METHOD1_ITEMS } from "@/lib/data/method1-items";
 import { METHOD2_GROUPS } from "@/lib/data/method2-items";
+import { LEGACY_METHOD1_ITEMS } from "@/lib/data/method1-legacy-items";
+import { LEGACY_METHOD2_GROUPS } from "@/lib/data/method2-legacy-items";
 import { aggregateMethod2, ratingBand } from "@/lib/scoring";
 import type { Condition, Method2Location, RubricItem } from "@/lib/types";
 
@@ -49,8 +51,13 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
   const m1Rows = await readRowsByHeader(spreadsheetId, METHOD1_TAB).catch(() => []);
   const m1Row = m1Rows.find((r) => r["Survey ID"] === surveyId);
   if (m1Row) {
+    // A row with no Rubric Version predates the 2026-10-27 item lists (see
+    // rubric-version.ts) and was scored against the frozen legacy ones —
+    // exporting it with today's names/weights would recalculate a different
+    // score than the one that was submitted.
+    const m1Items = m1Row["Rubric Version"] ? METHOD1_ITEMS : LEGACY_METHOD1_ITEMS;
     const conditions: Record<string, string> = {};
-    for (const item of METHOD1_ITEMS) conditions[item.name] = m1Row[item.name] ?? "";
+    for (const item of m1Items) conditions[item.name] = m1Row[item.name] ?? "";
     const overall = num(m1Row["Overall Score"]);
     return {
       method: 1,
@@ -74,7 +81,7 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
       endTime: m1Row["End Time"] || m1Row["Timestamp"] || "",
       timeTakenSeconds: num(m1Row["Time Taken (seconds)"]),
       conditions,
-      items: METHOD1_ITEMS,
+      items: m1Items,
     };
   }
 
@@ -82,9 +89,12 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
   const locationRows = m2Rows.filter((r) => r["Survey ID"] === surveyId);
   if (locationRows.length === 0) return null;
 
+  // Same version check as Method 1 above — pre-2026-10-27 rows hold the old
+  // 45 per-item columns, not the 30 item-group ones.
+  const groups = locationRows[0]["Rubric Version"] ? METHOD2_GROUPS : LEGACY_METHOD2_GROUPS;
   const locations: Method2Location[] = locationRows.map((row, i) => {
     const scores: Record<string, Condition> = {};
-    for (const group of METHOD2_GROUPS) {
+    for (const group of groups) {
       const value = row[group.name];
       if (value) scores[group.name] = value as Condition;
     }
@@ -123,7 +133,7 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
     endTime: first["End Time"] || first["Timestamp"] || "",
     timeTakenSeconds: num(first["Time Taken (seconds)"]),
     conditions: {},
-    aggregatedScores: aggregateMethod2(locations),
-    items: METHOD2_GROUPS,
+    aggregatedScores: aggregateMethod2(locations, groups),
+    items: groups,
   };
 }

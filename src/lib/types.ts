@@ -40,20 +40,10 @@ export interface RubricItem {
   hideNA?: boolean;
 }
 
-export type WorkCategory =
-  | "Building Civil Works"
-  | "Carpentry Works"
-  | "Paint Works"
-  | "External Development Works"
-  | "Electrical Works"
-  | "Plumbing Works";
-
 export interface Method2Group extends RubricItem {
   /** Safety items aggregate by worst-case (minimum); Functionality/Aesthetics aggregate by average. */
   aggregation: "worst" | "average";
-  /** Which Work Category card this item is scored under (06-method2-v2-restructure.md). */
-  workCategory: WorkCategory;
-  /** Which location types this item is scored at. */
+  /** Which location types this item group is scored at. */
   locations: LocationType[];
 }
 

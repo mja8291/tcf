@@ -1,28 +1,34 @@
-import type { Condition, FloorLevel, LocationType, Method2Group, WorkCategory } from "@/lib/types";
+import type { Category, Condition, FloorLevel, LocationType, Method2Group } from "@/lib/types";
+import { OK_UNSAFE, ROOF_ACCESS } from "./condition-overrides";
 
 /**
- * Method 2 v2 — 45 items across 6 work categories, per
- * 06-method2-v2-restructure.md (supersedes the old 23-item-group version).
- * Weights are each item's share of its scoring category (Functionality 45%
- * / Safety 25% / Aesthetics 30%) — the same weighting mechanics as Method 1,
- * just regrouped into work categories for entry and reweighted. Safety here
- * has 14 items (not Method 1's 13 — adds "Parapet Wall") with different
- * weights on shared items (e.g. Doors 7% here vs 12% in Method 1); verified
- * independently that Functionality/Safety/Aesthetics each still sum to 100%.
+ * Method 2 — 30 item groups (Safety 8 / Functionality 15 / Aesthetics 7),
+ * re-synced 2026-10-27 against the "MQI Assessment Rubrics (Method B)" tab of
+ * the revised rubric workbook. Names, order, "Category Weightage" and the
+ * per-group Location column are read directly from it; each division's
+ * weights sum to 100. This replaces the previous 45-item / 6-work-category
+ * version (frozen in method2-legacy-items.ts): Method B scores whole item
+ * *groups* per location, and has no Work Category column, so a location's
+ * groups are sectioned by division (Safety / Functionality / Aesthetics)
+ * instead.
  *
- * Re-synced 2026-08-22 (Round 3 Task 10) against the live "MQI Assessment
- * Rubrics (Method 2)" sheet — the also-present "(Method 2B)" tab is an
- * older/alternate draft (different item order, different weights, no
- * Location/Item Category columns matching this app's shape) and is not the
- * source of truth. Changes from the previous 44-item version:
- *   - New Electrical Works item "Drinking Water Cooler & Filter *" (2%),
- *     funded by Cabinet and Soft board each dropping 3% -> 2%.
- *   - Motor (Water pump)'s locations changed from [External Development,
- *     Other Room] to [Corridor & Stairs] only, then back to [External
- *     Development] only (2026-09-19 rubric correction).
- *   - CC Jaali's locations narrowed from [Toilet, Corridor, Facade, Other
- *     Room] to [Corridor, Facade] only.
- *   - "Toilet Flooring condition" renamed to "Toilet Tile condition".
+ * Decisions made on top of the sheet, confirmed with the rubric owner
+ * 2026-10-27:
+ *   - Sewerage System is scored at Toilet / External Development / Lab (the
+ *     sheet lists it under Exterior Facade only, which was taken to be a
+ *     typo and left as it was in the previous version).
+ *   - The two-button "OK / Unsafe" pickers score OK = 100%, Unsafe = 25%, and
+ *     Roof Access moves onto the same scale — see condition-overrides.ts.
+ * Not in the sheet, derived here:
+ *   - principalMaintained (drives the Minor score) is true when every item
+ *     the sheet's own Method A "Item Group" column files under the group is
+ *     one of its "*" (school-maintained) items. Distribution Board is mixed
+ *     (Energy & Power * + Electrical Wiring) and stays with Engineering.
+ *   - Safety groups aggregate across locations by worst case, the others by
+ *     average — unchanged from the previous version.
+ * Items the old list had that Method B has no group for (Grill gate,
+ * Internal Flooring condition, Drinking Water Cooler & Filter) are no longer
+ * scored in Method 2.
  */
 function worst(item: Omit<Method2Group, "aggregation" | "category"> & { category: "Safety" }): Method2Group {
   return { ...item, aggregation: "worst" };
@@ -43,379 +49,163 @@ const OTHER_ROOM: LocationType = "Other Room (Staff, Principal, Admin, Store etc
 const LAB: LocationType = "Lab (Wet/Dry/DLP)";
 
 export const METHOD2_GROUPS: Method2Group[] = [
-  // Plumbing Works — 8 items, all Functionality
-  average({
-    name: "Water Storage (Overhead Tank) *",
-    category: "Functionality",
-    weight: 7,
-    principalMaintained: true,
-    workCategory: "Plumbing Works",
-    locations: [ROOF],
-  }),
-  average({
-    name: "Water Supply line *",
-    category: "Functionality",
-    weight: 7,
-    principalMaintained: true,
-    workCategory: "Plumbing Works",
-    locations: [TOILET, EXT_DEV, ROOF, LAB],
-  }),
-  average({
-    name: "Water Taps *",
-    category: "Functionality",
-    weight: 7,
-    principalMaintained: true,
-    workCategory: "Plumbing Works",
-    locations: [TOILET, LAB],
-  }),
-  average({
-    name: "Wash Basin *",
-    category: "Functionality",
-    weight: 7,
-    principalMaintained: true,
-    workCategory: "Plumbing Works",
-    locations: [TOILET, LAB],
-  }),
-  average({
-    name: "Flush Tanks *",
-    category: "Functionality",
-    weight: 5,
-    principalMaintained: true,
-    workCategory: "Plumbing Works",
-    locations: [TOILET],
-  }),
-  average({
-    name: "W.Cs/Commodes",
-    category: "Functionality",
-    weight: 7,
-    workCategory: "Plumbing Works",
-    locations: [TOILET],
-  }),
-  average({
-    name: "Sewerage Line functionality *",
-    category: "Functionality",
-    weight: 7,
-    principalMaintained: true,
-    workCategory: "Plumbing Works",
-    locations: [TOILET, EXT_DEV, LAB],
-  }),
-  average({
-    name: "Motor (Water pump) *",
-    category: "Functionality",
-    weight: 4,
-    principalMaintained: true,
-    workCategory: "Plumbing Works",
-    locations: [EXT_DEV],
-  }),
-
-  // Electrical Works — 11 items, Functionality except Electrical Wiring/Connections (Safety)
-  average({
-    name: "Energy & Power (Distribution Board) *",
-    category: "Functionality",
-    weight: 4,
-    principalMaintained: true,
-    workCategory: "Electrical Works",
-    locations: [CORRIDOR, LAB],
-  }),
-  average({
-    name: "Fans *",
-    category: "Functionality",
-    weight: 5,
-    principalMaintained: true,
-    workCategory: "Electrical Works",
-    locations: [CLASSROOM, OTHER_ROOM, LAB],
-  }),
-  average({
-    name: "Light Switch Buttons *",
-    category: "Functionality",
-    weight: 5,
-    principalMaintained: true,
-    workCategory: "Electrical Works",
-    locations: [CLASSROOM, TOILET, CORRIDOR, LAB],
-  }),
-  average({
-    name: "Bulbs *",
-    category: "Functionality",
-    weight: 3,
-    principalMaintained: true,
-    workCategory: "Electrical Works",
-    locations: [CLASSROOM, TOILET, CORRIDOR, LAB],
-  }),
-  average({
-    name: "Fan Dimmers *",
-    category: "Functionality",
-    weight: 5,
-    principalMaintained: true,
-    workCategory: "Electrical Works",
-    locations: [CLASSROOM, OTHER_ROOM, LAB],
-  }),
-  average({
-    name: "LED/TV *",
-    category: "Functionality",
-    weight: 3,
-    principalMaintained: true,
-    workCategory: "Electrical Works",
-    locations: [LAB],
-  }),
-  average({
-    name: "UPS *",
-    category: "Functionality",
-    weight: 3,
-    principalMaintained: true,
-    workCategory: "Electrical Works",
-    locations: [LAB],
-  }),
-  average({
-    name: "Solar/UPS Batteries",
-    category: "Functionality",
-    weight: 3,
-    workCategory: "Electrical Works",
-    locations: [CORRIDOR],
-  }),
-  average({
-    name: "Solar Panels",
-    category: "Functionality",
-    weight: 2,
-    workCategory: "Electrical Works",
-    locations: [ROOF],
-  }),
-  average({
-    name: "Drinking Water Cooler & Filter *",
-    category: "Functionality",
-    weight: 2,
-    principalMaintained: true,
-    workCategory: "Electrical Works",
-    locations: [CORRIDOR],
-  }),
+  // Safety — 25% of overall, 8 groups
+  worst({ name: "Boundary wall", category: "Safety", weight: 10, locations: [EXT_DEV] }),
+  worst({ name: "Main Gate", category: "Safety", weight: 7, locations: [EXT_DEV] }),
   worst({
-    name: "Electrical Wiring/Connections",
+    name: "Roof Access",
     category: "Safety",
-    weight: 6,
-    workCategory: "Electrical Works",
-    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
-  }),
-
-  // Carpentry Works — 5 items
-  average({
-    name: "Windows/Ventilator & panes *",
-    category: "Functionality",
-    weight: 3,
-    principalMaintained: true,
-    workCategory: "Carpentry Works",
-    locations: [CLASSROOM, TOILET, OTHER_ROOM, LAB],
-  }),
-  average({
-    name: "Cabinet *",
-    category: "Functionality",
-    weight: 2,
-    principalMaintained: true,
-    workCategory: "Carpentry Works",
-    locations: [CLASSROOM, OTHER_ROOM, LAB],
-  }),
-  average({
-    name: "Soft board *",
-    category: "Functionality",
-    weight: 2,
-    principalMaintained: true,
-    workCategory: "Carpentry Works",
-    locations: [CLASSROOM, OTHER_ROOM, LAB],
-  }),
-  worst({
-    name: "Doors *",
-    category: "Safety",
-    weight: 7,
-    principalMaintained: true,
-    workCategory: "Carpentry Works",
-    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
-  }),
-  average({
-    name: "Furniture condition *",
-    category: "Aesthetics",
     weight: 10,
-    principalMaintained: true,
-    workCategory: "Carpentry Works",
-    locations: [CLASSROOM, OTHER_ROOM, LAB],
-  }),
-
-  // Paint Works — 3 items
-  average({
-    name: "Green board *",
-    category: "Functionality",
-    weight: 7,
-    principalMaintained: true,
-    workCategory: "Paint Works",
-    locations: [CLASSROOM, LAB],
-  }),
-  average({
-    name: "Internal Paint",
-    category: "Aesthetics",
-    weight: 15,
-    workCategory: "Paint Works",
-    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
-  }),
-  average({
-    name: "External Fascade (Exterior Finish)",
-    category: "Aesthetics",
-    weight: 12,
-    workCategory: "Paint Works",
-    locations: [FACADE],
-  }),
-
-  // External Development Works — 2 items
-  worst({
-    name: "Boundary wall",
-    category: "Safety",
-    weight: 7,
-    workCategory: "External Development Works",
-    locations: [EXT_DEV],
-  }),
-  worst({
-    name: "Main Gate",
-    category: "Safety",
-    weight: 7,
-    workCategory: "External Development Works",
-    locations: [EXT_DEV],
-  }),
-
-  // Building Civil Works — 16 items
-  worst({
-    name: "Grill gate *",
-    category: "Safety",
-    weight: 5,
-    principalMaintained: true,
-    workCategory: "Building Civil Works",
-    locations: [CORRIDOR, LAB, ROOF],
-  }),
-  worst({
-    name: "Access to roof area /tanks",
-    category: "Safety",
-    weight: 4,
-    workCategory: "Building Civil Works",
     locations: [ROOF],
-    // Rubric sheet only labels 2 of the 5 checkbox slots for this item
-    // (verified 2026-08-14 after the sheet's stray-text mixup on the
-    // adjacent Parapet Wall row was fixed) — same Ok/Poor scores as
-    // everywhere else, just item-specific button text.
-    conditionOverride: [
-      { condition: "Ok", label: "Roof Access Available" },
-      { condition: "Poor", label: "Roof Access Not Available" },
-    ],
-    // Either there's roof access or there isn't — "not applicable" has no
-    // meaning here, unlike an item that might genuinely be absent at a
-    // given location.
+    conditionOverride: ROOF_ACCESS,
     hideNA: true,
   }),
   worst({
-    name: "Cracks visibility in roof",
+    name: "Concrete/Plaster Soundness",
     category: "Safety",
-    weight: 14,
-    workCategory: "Building Civil Works",
+    weight: 15,
     locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+    conditionOverride: OK_UNSAFE,
   }),
   worst({
-    name: "Cracks visibility in columns",
+    name: "Ceiling Condition i.e. cracks & seepage",
     category: "Safety",
-    weight: 7,
-    workCategory: "Building Civil Works",
-    locations: [CLASSROOM, TOILET, CORRIDOR, FACADE, ROOF, OTHER_ROOM, LAB],
+    weight: 25,
+    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+    conditionOverride: OK_UNSAFE,
   }),
   worst({
-    name: "Cracks visibility in walls",
-    category: "Safety",
-    weight: 7,
-    workCategory: "Building Civil Works",
-    locations: [CLASSROOM, TOILET, CORRIDOR, FACADE, OTHER_ROOM, LAB],
-  }),
-  worst({
-    name: "Parapet Wall",
-    category: "Safety",
-    weight: 5,
-    workCategory: "Building Civil Works",
-    locations: [ROOF],
-  }),
-  worst({
-    name: "Internal Flooring condition",
+    name: "Wall/Column Condition i.e. cracks",
     category: "Safety",
     weight: 10,
-    workCategory: "Building Civil Works",
-    locations: [CLASSROOM, CORRIDOR, OTHER_ROOM, LAB],
-  }),
-  worst({
-    name: "Roof leakage/seepage",
-    category: "Safety",
-    weight: 7,
-    workCategory: "Building Civil Works",
     locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+    conditionOverride: OK_UNSAFE,
   }),
   worst({
     name: "Roof Screeding/roof drainage",
     category: "Safety",
-    weight: 7,
-    workCategory: "Building Civil Works",
+    weight: 15,
+    locations: [ROOF],
+    conditionOverride: OK_UNSAFE,
+  }),
+  worst({ name: "Distribution Board", category: "Safety", weight: 8, locations: [CORRIDOR] }),
+
+  // Functionality — 45% of overall, 15 groups
+  average({
+    name: "Green board/Softboard/Cabinet",
+    category: "Functionality",
+    weight: 10,
+    principalMaintained: true,
+    locations: [CLASSROOM, OTHER_ROOM, LAB],
+  }),
+  average({
+    name: "Water Storage (Overhead Tank)",
+    category: "Functionality",
+    weight: 6,
+    principalMaintained: true,
     locations: [ROOF],
   }),
-  worst({
-    name: "Visibility of dampness",
-    category: "Safety",
+  average({
+    name: "External Plumbing",
+    category: "Functionality",
+    weight: 6,
+    principalMaintained: true,
+    locations: [EXT_DEV],
+  }),
+  average({ name: "Taps", category: "Functionality", weight: 7, principalMaintained: true, locations: [TOILET, LAB] }),
+  average({
+    name: "Wash Basin",
+    category: "Functionality",
     weight: 7,
-    workCategory: "Building Civil Works",
-    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+    principalMaintained: true,
+    locations: [TOILET, LAB],
   }),
   average({
-    name: "Toilet Tile condition",
-    category: "Aesthetics",
-    weight: 12,
-    workCategory: "Building Civil Works",
+    name: "Flush Tanks",
+    category: "Functionality",
+    weight: 8,
+    principalMaintained: true,
     locations: [TOILET],
   }),
+  average({ name: "W.Cs/Commodes", category: "Functionality", weight: 5, locations: [TOILET, LAB] }),
   average({
-    name: "Signage *",
-    category: "Aesthetics",
-    weight: 10,
+    name: "Sewerage System",
+    category: "Functionality",
+    weight: 8,
     principalMaintained: true,
-    workCategory: "Building Civil Works",
-    locations: [FACADE],
+    locations: [TOILET, EXT_DEV, LAB],
   }),
   average({
-    name: "Marble Plaque *",
-    category: "Aesthetics",
-    weight: 10,
+    name: "Electrical Fixtures",
+    category: "Functionality",
+    weight: 8,
     principalMaintained: true,
-    workCategory: "Building Civil Works",
-    locations: [CORRIDOR],
+    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM],
   }),
   average({
-    name: "Plaster",
-    category: "Aesthetics",
-    weight: 12,
-    workCategory: "Building Civil Works",
-    locations: [CLASSROOM, TOILET, CORRIDOR, FACADE, OTHER_ROOM, LAB],
-  }),
-  average({
-    name: "Masonry",
-    category: "Aesthetics",
-    weight: 12,
-    workCategory: "Building Civil Works",
-    locations: [CLASSROOM, TOILET, CORRIDOR, FACADE, OTHER_ROOM, LAB],
-  }),
-  average({
-    name: "CC Jaali",
-    category: "Aesthetics",
+    name: "Switch/Dimmer Sheet",
+    category: "Functionality",
     weight: 7,
-    workCategory: "Building Civil Works",
-    locations: [CORRIDOR, FACADE],
+    principalMaintained: true,
+    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM],
   }),
+  average({
+    name: "Motor (Water pump)",
+    category: "Functionality",
+    weight: 3,
+    principalMaintained: true,
+    locations: [EXT_DEV],
+  }),
+  average({
+    name: "Furniture Condition",
+    category: "Functionality",
+    weight: 5,
+    principalMaintained: true,
+    locations: [CLASSROOM, OTHER_ROOM, LAB],
+  }),
+  average({
+    name: "Door/Windows/Ventilators",
+    category: "Functionality",
+    weight: 8,
+    principalMaintained: true,
+    locations: [CLASSROOM, TOILET, CORRIDOR, FACADE, OTHER_ROOM, LAB],
+  }),
+  average({
+    name: "LED/TV/UPS",
+    category: "Functionality",
+    weight: 5,
+    principalMaintained: true,
+    locations: [LAB],
+  }),
+  average({
+    name: "Solar Panels/Inverter/Batteries",
+    category: "Functionality",
+    weight: 7,
+    locations: [CORRIDOR, ROOF, OTHER_ROOM],
+  }),
+
+  // Aesthetics — 30% of overall, 7 groups
+  average({
+    name: "Paint",
+    category: "Aesthetics",
+    weight: 35,
+    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+  }),
+  average({ name: "Exterior Finish", category: "Aesthetics", weight: 25, locations: [FACADE] }),
+  average({ name: "Toilet Flooring/tiles", category: "Aesthetics", weight: 5, locations: [TOILET] }),
+  average({ name: "Signage", category: "Aesthetics", weight: 15, principalMaintained: true, locations: [FACADE] }),
+  average({ name: "Plaque", category: "Aesthetics", weight: 5, principalMaintained: true, locations: [CORRIDOR] }),
+  average({
+    name: "Plaster/Masonry",
+    category: "Aesthetics",
+    weight: 10,
+    locations: [CLASSROOM, TOILET, CORRIDOR, FACADE, ROOF, OTHER_ROOM, LAB],
+  }),
+  average({ name: "CC Jali", category: "Aesthetics", weight: 5, locations: [CORRIDOR, FACADE] }),
 ];
 
-/** Display order for the Work Category page's 6 cards. */
-export const WORK_CATEGORIES: WorkCategory[] = [
-  "Building Civil Works",
-  "Carpentry Works",
-  "Paint Works",
-  "External Development Works",
-  "Electrical Works",
-  "Plumbing Works",
-];
+/** Display order of a location's scoring sections. */
+export const METHOD2_SECTIONS: Category[] = ["Safety", "Functionality", "Aesthetics"];
 
 export const LOCATION_TYPES: LocationType[] = [
   CLASSROOM,
@@ -501,18 +291,18 @@ export function method2GroupsForLocation(type: LocationType): Method2Group[] {
   return METHOD2_GROUPS.filter((g) => g.locations.includes(type));
 }
 
-/** True once every item applicable to this location (across all its work categories) has a score — the same completeness rule the per-category Scoring page already enforces, applied to a whole recorded location at once. */
+/** True once every item group applicable to this location has a score — the same completeness rule the scoring page enforces, applied to a whole recorded location at once. */
 export function isMethod2LocationComplete(location: { type: LocationType; scores: Record<string, Condition> }): boolean {
   return method2GroupsForLocation(location.type).every((g) => Boolean(location.scores[g.name]));
 }
 
-export function method2GroupsForLocationAndCategory(type: LocationType, workCategory: WorkCategory): Method2Group[] {
-  return method2GroupsForLocation(type).filter((g) => g.workCategory === workCategory);
+export function method2GroupsForLocationAndSection(type: LocationType, section: Category): Method2Group[] {
+  return method2GroupsForLocation(type).filter((g) => g.category === section);
 }
 
-/** Item counts per work category for a specific location type — drives the Work Category page's card counts (location-specific, not global). */
-export function workCategoryCountsForLocation(type: LocationType): Record<WorkCategory, number> {
-  const counts = Object.fromEntries(WORK_CATEGORIES.map((c) => [c, 0])) as Record<WorkCategory, number>;
-  for (const item of method2GroupsForLocation(type)) counts[item.workCategory]++;
+/** Group counts per section for a specific location type — drives the scoring page's section counts (location-specific, not global). */
+export function sectionCountsForLocation(type: LocationType): Record<Category, number> {
+  const counts: Record<Category, number> = { Safety: 0, Functionality: 0, Aesthetics: 0 };
+  for (const group of method2GroupsForLocation(type)) counts[group.category]++;
   return counts;
 }

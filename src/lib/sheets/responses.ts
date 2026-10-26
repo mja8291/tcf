@@ -47,17 +47,14 @@ const TRAILING_HEADER = [
   "Paused Duration (seconds)",
   "Structural Concern Observed",
   "Suggested Structural Type",
+  "Rubric Version",
 ];
 
-/**
- * Columns added after the live "Method 1/2 Responses" tabs already existed.
- * ensureTab deliberately never rewrites an existing tab's header (someone may
- * have reordered/renamed columns), which means a brand-new field would
- * otherwise have no column to land in and appendRowsByHeader would silently
- * drop it. These specific names are the one exception: if an existing tab
- * lacks them, they're appended at the end of its header row.
- */
-const AUTO_ADD_COLUMNS = ["Structural Concern Observed", "Suggested Structural Type"];
+// Existing tabs keep their header (and column order) untouched, but any
+// column the app now writes that the tab lacks — a new rubric item, the
+// structural-safety answers, the rubric version — is appended at the end of
+// its header row (see addMissingColumns). Without that, appendRowsByHeader
+// would silently drop the value. Nothing is ever renamed, moved or removed.
 
 function columnLetter(n: number): string {
   let s = "";
@@ -141,7 +138,7 @@ async function addMissingColumns(
   desiredHeader: string[]
 ): Promise<{ header: string[]; complete: boolean }> {
   const have = new Set(existingHeader.map((h) => h.toLowerCase()));
-  const missing = AUTO_ADD_COLUMNS.filter((c) => desiredHeader.includes(c) && !have.has(c.toLowerCase()));
+  const missing = [...new Set(desiredHeader)].filter((c) => !have.has(c.toLowerCase()));
   if (missing.length === 0) return { header: existingHeader, complete: true };
 
   try {
@@ -253,6 +250,9 @@ function commonFields(payload: SubmitPayload, locationName = ""): Record<string,
     // `?? ""`: a submission queued by an older app version predates these.
     "Structural Concern Observed": payload.structuralConcern ?? "",
     "Suggested Structural Type": payload.buildingStructure ?? "",
+    // Blank for a submission from an app older than the 2026-10-27 rubric
+    // change — see rubric-version.ts.
+    "Rubric Version": payload.rubricVersion ?? "",
     "Location Name": locationName,
     "Major Complaints": payload.complaints,
     "Overall Score": payload.overall === null ? "" : String(Math.round(payload.overall)),

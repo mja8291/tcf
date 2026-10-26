@@ -1,17 +1,23 @@
 import type { RubricItem } from "@/lib/types";
+import { OK_UNSAFE, ROOF_ACCESS } from "./condition-overrides";
 
 /**
- * Method 1 — 45 items, flat, one score per campus. Re-synced 2026-08-22
- * (Round 3 Task 10) against the live "MQI Assessment Rubrics (Method 1)"
- * sheet — every count/name/weight below is a direct fetch, not carried over
- * from any earlier round of this brief (which had gone stale). Changes from
- * the previous 44-item version:
- *   - New 22nd Functionality item "Drinking Water Cooler & Filter *" (2%),
- *     funded by Cabinet and Soft board each dropping 3% -> 2%.
- *   - "W.Cs/Commodes *" lost its asterisk (no longer principal-maintained) —
- *     matches what method2-items.ts already had; Method 1's copy was stale.
- *   - "Toilet Flooring condition" renamed to "Toilet Tile condition".
- * Safety is unchanged (still 14 items, same weights as the 2026-08-12 audit).
+ * Method 1 — 46 items, flat, one score per campus. Re-synced 2026-10-27
+ * against the "MQI Assessment Rubrics (Method A)" tab of the revised rubric
+ * workbook (names, order and "Category Weightage" column read directly from
+ * it; Functionality 22 / Safety 15 / Aesthetics 9, each summing to 100).
+ * Changes from the previous 45-item version (frozen in
+ * method1-legacy-items.ts):
+ *   - New Safety item "Concrete/Plaster Soundness" (7%).
+ *   - Safety reweighted: Main Gate 7 -> 5, Cracks visibility in roof
+ *     14 -> 12, Internal Flooring condition 10 -> 7.
+ *   - Renamed: "Grill gate of lab *" -> "Grill gate *", "Windows & panes *"
+ *     -> "Windows/Ventilator & panes *", "Solar/UPS Batteries" ->
+ *     "Solar/Inverter Batteries".
+ *   - Two-button "OK / Unsafe" pickers on six safety items, and Roof Access
+ *     moved onto the same scale — see condition-overrides.ts.
+ * The sheet's Location / Item Category columns describe Method 2's shape and
+ * don't apply to a whole-campus score.
  */
 export const METHOD1_ITEMS: RubricItem[] = [
   // Functionality — 45% of overall, 22 items
@@ -29,49 +35,39 @@ export const METHOD1_ITEMS: RubricItem[] = [
   { name: "Bulbs *", category: "Functionality", weight: 3, principalMaintained: true },
   { name: "Fan Dimmers *", category: "Functionality", weight: 5, principalMaintained: true },
   { name: "Motor (Water pump) *", category: "Functionality", weight: 4, principalMaintained: true },
-  { name: "Windows & panes *", category: "Functionality", weight: 3, principalMaintained: true },
+  { name: "Windows/Ventilator & panes *", category: "Functionality", weight: 3, principalMaintained: true },
   { name: "Cabinet *", category: "Functionality", weight: 2, principalMaintained: true },
   { name: "Soft board *", category: "Functionality", weight: 2, principalMaintained: true },
   { name: "Drinking Water Cooler & Filter *", category: "Functionality", weight: 2, principalMaintained: true },
   { name: "LED/TV *", category: "Functionality", weight: 3, principalMaintained: true },
   { name: "UPS *", category: "Functionality", weight: 3, principalMaintained: true },
-  { name: "Solar/UPS Batteries", category: "Functionality", weight: 3 },
+  { name: "Solar/Inverter Batteries", category: "Functionality", weight: 3 },
   { name: "Solar Panels", category: "Functionality", weight: 2 },
 
-  // Safety — 25% of overall, 14 items (updated 2026-08-12 to match the live
-  // "MQI Assessment Rubrics (Method 1)" sheet, which had been rebalanced —
-  // adding "Parapet Wall" and reweighting 4 other items — without the app's
-  // copy catching up; weights below now match Method 2's Safety set exactly,
-  // since the sheet shows both methods sharing one Safety rubric).
+  // Safety — 25% of overall, 15 items
   { name: "Boundary wall", category: "Safety", weight: 7 },
-  { name: "Grill gate of lab *", category: "Safety", weight: 5, principalMaintained: true },
+  { name: "Grill gate *", category: "Safety", weight: 5, principalMaintained: true },
   { name: "Doors *", category: "Safety", weight: 7, principalMaintained: true },
-  { name: "Main Gate", category: "Safety", weight: 7 },
+  { name: "Main Gate", category: "Safety", weight: 5 },
   {
     name: "Access to roof area /tanks",
     category: "Safety",
     weight: 4,
-    // Rubric sheet only labels 2 of the 5 checkbox slots for this item
-    // (verified 2026-08-14 after the sheet's stray-text mixup on the
-    // adjacent Parapet Wall row was fixed) — same Ok/Poor scores as
-    // everywhere else, just item-specific button text.
-    conditionOverride: [
-      { condition: "Ok", label: "Roof Access Available" },
-      { condition: "Poor", label: "Roof Access Not Available" },
-    ],
+    conditionOverride: ROOF_ACCESS,
     // Either there's roof access or there isn't — "not applicable" has no
     // meaning here, unlike an item that might genuinely be absent at a
     // given location.
     hideNA: true,
   },
-  { name: "Cracks visibility in roof", category: "Safety", weight: 14 },
-  { name: "Cracks visibility in columns", category: "Safety", weight: 7 },
+  { name: "Cracks visibility in roof", category: "Safety", weight: 12, conditionOverride: OK_UNSAFE },
+  { name: "Cracks visibility in columns", category: "Safety", weight: 7, conditionOverride: OK_UNSAFE },
   { name: "Cracks visibility in walls", category: "Safety", weight: 7 },
+  { name: "Concrete/Plaster Soundness", category: "Safety", weight: 7, conditionOverride: OK_UNSAFE },
   { name: "Parapet Wall", category: "Safety", weight: 5 },
-  { name: "Internal Flooring condition", category: "Safety", weight: 10 },
-  { name: "Roof leakage/seepage", category: "Safety", weight: 7 },
-  { name: "Roof Screeding/roof drainage", category: "Safety", weight: 7 },
-  { name: "Visibility of dampness", category: "Safety", weight: 7 },
+  { name: "Internal Flooring condition", category: "Safety", weight: 7 },
+  { name: "Roof leakage/seepage", category: "Safety", weight: 7, conditionOverride: OK_UNSAFE },
+  { name: "Roof Screeding/roof drainage", category: "Safety", weight: 7, conditionOverride: OK_UNSAFE },
+  { name: "Visibility of dampness", category: "Safety", weight: 7, conditionOverride: OK_UNSAFE },
   { name: "Electrical Wiring/Connections", category: "Safety", weight: 6 },
 
   // Aesthetics — 30% of overall, 9 items

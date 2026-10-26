@@ -1,3 +1,4 @@
+import { RUBRIC_VERSION } from "@/lib/data/rubric-version";
 import type {
   BuildingStructure,
   Condition,
@@ -54,6 +55,8 @@ export interface SubmitPayload {
   /** Optional in the type only because a submission queued by an older app version (still sitting in IndexedDB) predates these two — the server treats a missing value as blank. */
   structuralConcern?: StructuralConcern;
   buildingStructure?: BuildingStructure;
+  /** Which item list/weights this survey was scored against — see rubric-version.ts. Absent on anything submitted (or queued) by an app version older than 2026-10-27, which is how exports know to use the frozen legacy lists. */
+  rubricVersion?: string;
   complaints: string;
   overall: number | null;
   functionality: number | null;
@@ -195,6 +198,7 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
     powerSupply: state.powerSupply,
     structuralConcern: state.structuralConcern,
     buildingStructure: state.buildingStructure,
+    rubricVersion: RUBRIC_VERSION,
     complaints: state.complaints,
     overall: result.overall,
     functionality: result.categories.Functionality.score,

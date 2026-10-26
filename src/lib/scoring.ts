@@ -62,7 +62,12 @@ function effectiveWeight(item: RubricItem): number {
   return CATEGORY_WEIGHT[item.category] * item.weight;
 }
 
-function scoreItemSet(items: RubricItem[], valueOf: (item: RubricItem) => number | undefined): ScoreResult {
+function scoreItemSet(
+  items: RubricItem[],
+  valueOf: (item: RubricItem) => number | undefined,
+  /** Name of the item to read for a watchlist entry, when the item set uses different names (Method 2's groups). */
+  criticalItemNameFor: (watchlistName: string) => string = (n) => n
+): ScoreResult {
   const categories = {} as Record<Category, CategoryScoreResult>;
   for (const category of CATEGORIES) {
     const categoryItems = items.filter((i) => i.category === category);
@@ -104,7 +109,7 @@ function scoreItemSet(items: RubricItem[], valueOf: (item: RubricItem) => number
   const byName = new Map(items.map((i) => [i.name, i]));
   const criticalItems: Record<string, number | null> = {};
   for (const name of CRITICAL_ITEMS) {
-    const item = byName.get(name);
+    const item = byName.get(criticalItemNameFor(name));
     criticalItems[name] = item ? (valueOf(item) ?? null) : null;
   }
 
@@ -125,6 +130,22 @@ export const CRITICAL_ITEMS = [
   "External Fascade (Exterior Finish)",
 ] as const;
 
+/**
+ * Method 2 scores item *groups*, so each watchlist entry reads the group the
+ * revised rubric files it under (the "Item Group" column of its Method A
+ * tab). Three of the seven share Ceiling Condition, so in Method 2 they
+ * carry the same value — that's the granularity Method 2 collects.
+ */
+const METHOD2_CRITICAL_GROUP: Record<(typeof CRITICAL_ITEMS)[number], string> = {
+  "Cracks visibility in roof": "Ceiling Condition i.e. cracks & seepage",
+  "Green board *": "Green board/Softboard/Cabinet",
+  "Roof Screeding/roof drainage": "Roof Screeding/roof drainage",
+  "Roof leakage/seepage": "Ceiling Condition i.e. cracks & seepage",
+  "Visibility of dampness": "Ceiling Condition i.e. cracks & seepage",
+  "Internal Paint": "Paint",
+  "External Fascade (Exterior Finish)": "Exterior Finish",
+};
+
 export function scoreMethod1(scores: Record<string, Condition>): ScoreResult {
   return scoreItemSet(METHOD1_ITEMS, (item) => conditionToScore(scores[item.name]));
 }
@@ -138,9 +159,13 @@ export function scoreMethod1(scores: Record<string, Condition>): ScoreResult {
  * Safety groups: worst observed (minimum) — one real hazard shouldn't be
  * diluted by other rooms being fine. Functionality/Aesthetics groups: average.
  */
-export function aggregateMethod2(locations: Method2Location[]): Record<string, number> {
+export function aggregateMethod2(
+  locations: Method2Location[],
+  /** Defaults to the current item groups; an export of a pre-2026-10-27 survey passes the frozen legacy list instead. */
+  groups: { name: string; aggregation: "worst" | "average" }[] = METHOD2_GROUPS
+): Record<string, number> {
   const result: Record<string, number> = {};
-  for (const group of METHOD2_GROUPS) {
+  for (const group of groups) {
     const values: number[] = [];
     for (const loc of locations) {
       const v = conditionToScore(loc.scores[group.name]);
@@ -155,7 +180,11 @@ export function aggregateMethod2(locations: Method2Location[]): Record<string, n
 
 export function scoreMethod2(locations: Method2Location[]): ScoreResult {
   const aggregated = aggregateMethod2(locations);
-  return scoreItemSet(METHOD2_GROUPS, (item) => aggregated[item.name]);
+  return scoreItemSet(
+    METHOD2_GROUPS,
+    (item) => aggregated[item.name],
+    (name) => METHOD2_CRITICAL_GROUP[name as (typeof CRITICAL_ITEMS)[number]] ?? name
+  );
 }
 
 export function ratingBand(score: number | null): RatingBand | null {
