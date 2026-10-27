@@ -17,14 +17,28 @@ import {
   BUILDING_STRUCTURE_QUESTION,
   CENTER_BEAM_OPTIONS,
   CENTER_BEAM_QUESTION,
+  DRILLING_DONE_QUESTION,
+  DRILLING_POINT_OPTIONS,
+  DRILLING_POINT_QUESTION,
+  DRILLING_REPAIR_QUESTION,
   OATH_TEXT,
   POWER_SUPPLY_OPTIONS,
+  SCREED_THICKNESS_LABEL,
+  SLAB_THICKNESS_LABEL,
   STRUCTURAL_CONCERN_OPTIONS,
   STRUCTURAL_CONCERN_QUESTION,
   TYPE_OF_STRUCTURE_OPTIONS,
   TYPE_OF_STRUCTURE_QUESTION,
 } from "@/lib/data/content";
-import type { BuildingStructure, CenterBeam, PowerSupply, StructuralConcern, TypeOfStructure } from "@/lib/types";
+import { emptyDrillingCheck, isDrillingCheckComplete } from "@/lib/types";
+import type {
+  BuildingStructure,
+  CenterBeam,
+  DrillingCheck,
+  PowerSupply,
+  StructuralConcern,
+  TypeOfStructure,
+} from "@/lib/types";
 import { buildSubmission, countUnresolvedPhotos } from "@/lib/submit";
 import { queueSubmission, deleteDraft } from "@/lib/offline/db";
 import { DRAFTS_CHANGED_EVENT } from "@/lib/draft";
@@ -42,6 +56,7 @@ export default function ReviewPage() {
     setBuildingStructure,
     setTypeOfStructure,
     setCenterBeam,
+    setDrillingCheck,
     setComplaints,
     setLastSurveyId,
   } = useSurvey();
@@ -50,6 +65,7 @@ export default function ReviewPage() {
   const [buildingStructure, setLocalBuildingStructure] = useState<BuildingStructure | "">(state.buildingStructure);
   const [typeOfStructure, setLocalTypeOfStructure] = useState<TypeOfStructure | "">(state.typeOfStructure);
   const [centerBeam, setLocalCenterBeam] = useState<CenterBeam | "">(state.centerBeam);
+  const [drilling, setDrilling] = useState<DrillingCheck>(state.drillingCheck ?? emptyDrillingCheck());
   const [complaints, setLocalComplaints] = useState(state.complaints);
   const [oath, setOath] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -122,6 +138,7 @@ export default function ReviewPage() {
     Boolean(buildingStructure) &&
     Boolean(typeOfStructure) &&
     Boolean(centerBeam) &&
+    isDrillingCheckComplete(drilling) &&
     !submitting &&
     photosUploading === 0;
 
@@ -159,6 +176,13 @@ export default function ReviewPage() {
     setBuildingStructure(buildingStructure);
     setTypeOfStructure(typeOfStructure);
     setCenterBeam(centerBeam);
+    // Switching the answer back to "NO" after filling the details in must not
+    // send them along — a check that wasn't done has no thickness to report.
+    const drillingCheck: DrillingCheck =
+      drilling.done === "YES"
+        ? { ...drilling, slabThicknessMm: drilling.slabThicknessMm.trim(), screedThicknessMm: drilling.screedThicknessMm.trim() }
+        : { ...emptyDrillingCheck(), done: "NO" };
+    setDrillingCheck(drillingCheck);
     setComplaints(complaints);
 
     const submission = buildSubmission(
@@ -171,6 +195,7 @@ export default function ReviewPage() {
         buildingStructure,
         typeOfStructure,
         centerBeam,
+        drillingCheck,
         complaints,
       },
       result
@@ -249,6 +274,7 @@ export default function ReviewPage() {
         buildingStructure: buildingStructure || "",
         typeOfStructure: typeOfStructure || "",
         centerBeam: centerBeam || "",
+        drillingCheck: drilling,
         complaints,
       };
       const blob = kind === "excel" ? await buildDraftExcelBlob(params) : await buildDraftPdfBlob(params);
@@ -396,6 +422,75 @@ export default function ReviewPage() {
           ))}
         </select>
       </Field>
+
+      <Field label={DRILLING_DONE_QUESTION}>
+        <select
+          value={drilling.done}
+          onChange={(e) => setDrilling({ ...drilling, done: e.target.value as DrillingCheck["done"] })}
+          className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+        >
+          <option value="">Select an answer</option>
+          <option value="YES">YES</option>
+          <option value="NO">NO</option>
+        </select>
+      </Field>
+
+      {drilling.done === "YES" ? (
+        <div className="rounded-xl border border-border bg-card px-3 pt-3 mb-4">
+          <Field label={DRILLING_POINT_QUESTION}>
+            <select
+              value={drilling.pointMarked}
+              onChange={(e) => setDrilling({ ...drilling, pointMarked: e.target.value as DrillingCheck["pointMarked"] })}
+              className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+            >
+              <option value="">Select an answer</option>
+              {DRILLING_POINT_OPTIONS.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label={SLAB_THICKNESS_LABEL}>
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="any"
+              placeholder="mm"
+              value={drilling.slabThicknessMm}
+              onChange={(e) => setDrilling({ ...drilling, slabThicknessMm: e.target.value })}
+              className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+            />
+          </Field>
+
+          <Field label={SCREED_THICKNESS_LABEL}>
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="any"
+              placeholder="mm"
+              value={drilling.screedThicknessMm}
+              onChange={(e) => setDrilling({ ...drilling, screedThicknessMm: e.target.value })}
+              className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+            />
+          </Field>
+
+          <Field label={DRILLING_REPAIR_QUESTION}>
+            <select
+              value={drilling.holeRepaired}
+              onChange={(e) => setDrilling({ ...drilling, holeRepaired: e.target.value as DrillingCheck["holeRepaired"] })}
+              className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+            >
+              <option value="">Select an answer</option>
+              <option value="YES">YES</option>
+              <option value="NO">NO</option>
+            </select>
+          </Field>
+        </div>
+      ) : null}
 
       <Field label="Major complaints or additional remarks">
         <textarea

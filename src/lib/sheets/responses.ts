@@ -49,6 +49,11 @@ const TRAILING_HEADER = [
   "Suggested Structural Type",
   "Type of Structure (Visual Inspection)",
   "Center Beam in Classrooms",
+  "Drilling Check Done",
+  "Drilling Point Marked",
+  "Slab Thickness (mm)",
+  "Roof Screeding Thickness (mm)",
+  "Drilled Hole Repaired (Grout/Epoxy)",
   "Rubric Version",
 ];
 
@@ -254,6 +259,14 @@ function commonFields(payload: SubmitPayload, locationName = ""): Record<string,
     "Suggested Structural Type": payload.buildingStructure ?? "",
     "Type of Structure (Visual Inspection)": payload.typeOfStructure ?? "",
     "Center Beam in Classrooms": payload.centerBeam ?? "",
+    // Details are only meaningful when the check was done; a "NO" (or a
+    // submission from an older app, which has no drillingCheck at all) leaves
+    // them blank rather than carrying stale half-typed values.
+    "Drilling Check Done": payload.drillingCheck?.done ?? "",
+    "Drilling Point Marked": payload.drillingCheck?.done === "YES" ? payload.drillingCheck.pointMarked : "",
+    "Slab Thickness (mm)": payload.drillingCheck?.done === "YES" ? payload.drillingCheck.slabThicknessMm : "",
+    "Roof Screeding Thickness (mm)": payload.drillingCheck?.done === "YES" ? payload.drillingCheck.screedThicknessMm : "",
+    "Drilled Hole Repaired (Grout/Epoxy)": payload.drillingCheck?.done === "YES" ? payload.drillingCheck.holeRepaired : "",
     // Blank for a submission from an app older than the 2026-10-27 rubric
     // change — see rubric-version.ts.
     "Rubric Version": payload.rubricVersion ?? "",

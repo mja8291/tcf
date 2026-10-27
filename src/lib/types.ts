@@ -22,6 +22,34 @@ export type CenterBeam = "YES" | "NO" | "N/A";
 
 export type TypeOfStructure = "RCC (Frame)" | "Load-bearing" | "Hybrid" | "N/A";
 
+/**
+ * The slab / roof-screeding drilling check from the rubric workbook's
+ * "Safety Related" tab (items 18-19, "Drilling & Observation"), plus roof
+ * screeding thickness. Recorded on the last page only — it doesn't feed any
+ * score. Everything after `done` only applies when done === "YES". The
+ * thicknesses are kept as the text typed (validated as positive numbers at
+ * submit) so a half-typed value survives a draft save.
+ */
+export interface DrillingCheck {
+  done: "YES" | "NO" | "";
+  pointMarked: "Ok" | "Unsafe" | "";
+  slabThicknessMm: string;
+  screedThicknessMm: string;
+  holeRepaired: "YES" | "NO" | "";
+}
+
+export function emptyDrillingCheck(): DrillingCheck {
+  return { done: "", pointMarked: "", slabThicknessMm: "", screedThicknessMm: "", holeRepaired: "" };
+}
+
+/** True when the check is answered: "NO", or "YES" with every detail filled in and both thicknesses positive numbers. */
+export function isDrillingCheckComplete(c: DrillingCheck): boolean {
+  if (c.done === "NO") return true;
+  if (c.done !== "YES") return false;
+  const positive = (v: string) => v.trim() !== "" && Number.isFinite(Number(v)) && Number(v) > 0;
+  return Boolean(c.pointMarked) && Boolean(c.holeRepaired) && positive(c.slabThicknessMm) && positive(c.screedThicknessMm);
+}
+
 export interface RubricItem {
   /** Canonical item name — used as the key in scores/photos/notes maps and as the Sheets column/attachment key. */
   name: string;

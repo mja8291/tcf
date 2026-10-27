@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { CATEGORY_WEIGHT } from "@/lib/scoring";
 import { formatDurationFriendly } from "@/lib/format-duration";
-import type { Category, RubricItem } from "@/lib/types";
+import type { Category, DrillingCheck, RubricItem } from "@/lib/types";
 
 export interface SingleSurveyPdfInput {
   surveyId: string;
@@ -23,6 +23,8 @@ export interface SingleSurveyPdfInput {
   buildingStructure: string;
   typeOfStructure: string;
   centerBeam: string;
+  /** Blank fields (a survey from before this check existed) all render as "—". */
+  drillingCheck: DrillingCheck;
   complaints: string;
   overall: number | null;
   functionality: number | null;
@@ -105,6 +107,11 @@ export async function buildSingleSurveyPdf(input: SingleSurveyPdfInput): Promise
     ["Suggested structural type", input.buildingStructure || "—"],
     ["Type of structure (visual)", input.typeOfStructure || "—"],
     ["Center beam in classrooms", input.centerBeam || "—"],
+    ["Drilling check done", input.drillingCheck.done || "—"],
+    ["Drilling point marked", input.drillingCheck.pointMarked || "—"],
+    ["Slab thickness", input.drillingCheck.slabThicknessMm ? `${input.drillingCheck.slabThicknessMm} mm` : "—"],
+    ["Roof screeding thickness", input.drillingCheck.screedThicknessMm ? `${input.drillingCheck.screedThicknessMm} mm` : "—"],
+    ["Hole repaired (grout/epoxy)", input.drillingCheck.holeRepaired || "—"],
     ["Start Time", input.startTime ? new Date(input.startTime).toLocaleString() : "—"],
     ["Finish Time", input.endTime ? new Date(input.endTime).toLocaleString() : "—"],
     ["Time Taken", input.timeTakenSeconds === null ? "—" : formatDurationFriendly(input.timeTakenSeconds)],

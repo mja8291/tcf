@@ -6,7 +6,7 @@ import { aggregateMethod2, ratingBand } from "@/lib/scoring";
 import { METHOD1_ITEMS } from "@/lib/data/method1-items";
 import { METHOD2_GROUPS } from "@/lib/data/method2-items";
 import type { SurveyState } from "@/lib/survey-context";
-import type { ScoreResult } from "@/lib/types";
+import type { DrillingCheck, ScoreResult } from "@/lib/types";
 
 /**
  * Pre-submission export fallback (Round 3 Task 9): if submission is
@@ -33,6 +33,7 @@ interface DraftExportParams {
   buildingStructure: string;
   typeOfStructure: string;
   centerBeam: string;
+  drillingCheck: DrillingCheck;
   complaints: string;
 }
 
@@ -117,6 +118,7 @@ export async function buildDraftPdfBlob({
   buildingStructure,
   typeOfStructure,
   centerBeam,
+  drillingCheck,
   complaints,
 }: DraftExportParams): Promise<Blob> {
   const method = state.method === 2 ? 2 : 1;
@@ -149,6 +151,7 @@ export async function buildDraftPdfBlob({
     buildingStructure,
     typeOfStructure,
     centerBeam,
+    drillingCheck,
     complaints,
     overall: result.overall,
     functionality: result.categories.Functionality.score,

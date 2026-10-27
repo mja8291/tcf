@@ -3,6 +3,7 @@ import type {
   BuildingStructure,
   CenterBeam,
   Condition,
+  DrillingCheck,
   FloorLevel,
   LocationType,
   PhotoAsset,
@@ -36,6 +37,7 @@ interface SubmitState {
   buildingStructure: BuildingStructure;
   typeOfStructure: TypeOfStructure;
   centerBeam: CenterBeam;
+  drillingCheck: DrillingCheck;
   complaints: string;
   m1: { scores: Record<string, Condition>; photos: Record<string, PhotoAsset[]>; notes: Record<string, string> };
   m2: { locations: SubmitLocation[] };
@@ -61,6 +63,7 @@ export interface SubmitPayload {
   buildingStructure?: BuildingStructure;
   typeOfStructure?: TypeOfStructure;
   centerBeam?: CenterBeam;
+  drillingCheck?: DrillingCheck;
   /** Which item list/weights this survey was scored against — see rubric-version.ts. Absent on anything submitted (or queued) by an app version older than 2026-10-27, which is how exports know to use the frozen legacy lists. */
   rubricVersion?: string;
   complaints: string;
@@ -206,6 +209,7 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
     buildingStructure: state.buildingStructure,
     typeOfStructure: state.typeOfStructure,
     centerBeam: state.centerBeam,
+    drillingCheck: state.drillingCheck,
     rubricVersion: RUBRIC_VERSION,
     complaints: state.complaints,
     overall: result.overall,

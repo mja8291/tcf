@@ -32,6 +32,16 @@ export const TYPE_OF_STRUCTURE_OPTIONS: TypeOfStructure[] = ["RCC (Frame)", "Loa
 export const CENTER_BEAM_QUESTION = "Center Beam in Classrooms (visual inspection)";
 export const CENTER_BEAM_OPTIONS: CenterBeam[] = ["YES", "NO", "N/A"];
 
+// Slab / roof-screeding drilling check — "Drilling & Observation" block of
+// the rubric workbook's "Safety Related" tab (wording of the first item is
+// the sheet's own). Recorded only, never scored.
+export const DRILLING_DONE_QUESTION = "Was a drilling check of slab and roof screeding thickness carried out?";
+export const DRILLING_POINT_QUESTION = "Drilling point marked on slab by APM (clear of beams, electrical point etc.)";
+export const DRILLING_POINT_OPTIONS = ["Ok", "Unsafe"] as const;
+export const SLAB_THICKNESS_LABEL = "Slab thickness recorded (mm)";
+export const SCREED_THICKNESS_LABEL = "Roof screeding thickness recorded (mm)";
+export const DRILLING_REPAIR_QUESTION = "Was the drilled hole repaired with grout/epoxy?";
+
 export const BUILDING_STRUCTURE_QUESTION ="Please suggest structural type of the building.";
 export const BUILDING_STRUCTURE_OPTIONS: BuildingStructure[] = [
   "Load-Bearing",

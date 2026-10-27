@@ -6,7 +6,7 @@ import { LEGACY_METHOD1_ITEMS } from "@/lib/data/method1-legacy-items";
 import { LEGACY_METHOD2_GROUPS } from "@/lib/data/method2-legacy-items";
 import { METHOD2_GROUPS_20261027 } from "@/lib/data/method2-v20261027-items";
 import { aggregateMethod2, ratingBand } from "@/lib/scoring";
-import type { Condition, Method2Location, RubricItem } from "@/lib/types";
+import type { Condition, DrillingCheck, Method2Location, RubricItem } from "@/lib/types";
 
 const METHOD1_TAB = process.env.METHOD1_RESPONSE_TAB || "Method 1 Responses";
 const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses";
@@ -25,6 +25,7 @@ export interface FoundSurvey {
   buildingStructure: string;
   typeOfStructure: string;
   centerBeam: string;
+  drillingCheck: DrillingCheck;
   complaints: string;
   overall: number | null;
   functionality: number | null;
@@ -41,6 +42,16 @@ export interface FoundSurvey {
   /** Method 2 only — campus-level aggregated score (0-100) per item group. */
   aggregatedScores?: Record<string, number>;
   items: RubricItem[];
+}
+
+function drillingCheckFromRow(row: Record<string, string>): DrillingCheck {
+  return {
+    done: (row["Drilling Check Done"] ?? "") as DrillingCheck["done"],
+    pointMarked: (row["Drilling Point Marked"] ?? "") as DrillingCheck["pointMarked"],
+    slabThicknessMm: row["Slab Thickness (mm)"] ?? "",
+    screedThicknessMm: row["Roof Screeding Thickness (mm)"] ?? "",
+    holeRepaired: (row["Drilled Hole Repaired (Grout/Epoxy)"] ?? "") as DrillingCheck["holeRepaired"],
+  };
 }
 
 function num(v: string | undefined): number | null {
@@ -76,6 +87,7 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
       buildingStructure: m1Row["Suggested Structural Type"] ?? "",
       typeOfStructure: m1Row["Type of Structure (Visual Inspection)"] ?? "",
       centerBeam: m1Row["Center Beam in Classrooms"] ?? "",
+      drillingCheck: drillingCheckFromRow(m1Row),
       complaints: m1Row["Major Complaints"] ?? "",
       overall,
       functionality: num(m1Row["Functionality Score"]),
@@ -134,6 +146,7 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
     buildingStructure: first["Suggested Structural Type"] ?? "",
     typeOfStructure: first["Type of Structure (Visual Inspection)"] ?? "",
     centerBeam: first["Center Beam in Classrooms"] ?? "",
+    drillingCheck: drillingCheckFromRow(first),
     complaints: first["Major Complaints"] ?? "",
     overall,
     functionality: num(first["Functionality Score"]),
