@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useReducer, useState } from "react";
 import { getDraft } from "./offline/db";
-import { emptyDrillingCheck, type DrillingCheck } from "./types";
+import { emptyDrillingCheck, emptySiteChecks, type DrillingCheck, type SiteChecks } from "./types";
 import type {
   Condition,
   FloorLevel,
@@ -42,6 +42,9 @@ export interface SurveyState {
   typeOfStructure: TypeOfStructure | "";
   centerBeam: CenterBeam | "";
   drillingCheck: DrillingCheck;
+  siteChecks: SiteChecks;
+  /** Photos attached to last-page questions (see SITE_PHOTO_* in types.ts), keyed by question text. Same lifecycle as every other photo — each uploads to Drive individually on attach. */
+  reviewPhotos: Record<string, PhotoAsset[]>;
   complaints: string;
   m1: {
     scores: Record<string, Condition>;
@@ -125,6 +128,8 @@ function initialState(): SurveyState {
     typeOfStructure: "",
     centerBeam: "",
     drillingCheck: emptyDrillingCheck(),
+    siteChecks: emptySiteChecks(),
+    reviewPhotos: {},
     complaints: "",
     m1: { scores: {}, photos: {}, notes: {} },
     m2: { locations: [], current: null },
@@ -175,6 +180,10 @@ type Action =
   | { type: "SET_CENTER_BEAM"; value: CenterBeam }
   | { type: "SET_TYPE_OF_STRUCTURE"; value: TypeOfStructure }
   | { type: "SET_DRILLING_CHECK"; value: DrillingCheck }
+  | { type: "SET_SITE_CHECKS"; value: SiteChecks }
+  | { type: "REVIEW_ADD_PHOTO"; name: string; id: string; file: File }
+  | { type: "REVIEW_PHOTO_STATUS"; name: string; id: string; status: PhotoAsset["status"]; url?: string; errorMessage?: string }
+  | { type: "REVIEW_REMOVE_PHOTO"; name: string; id: string }
   | { type: "SET_COMPLAINTS"; value: string }
   | { type: "SET_LAST_SURVEY_ID"; surveyId: string | null }
   | { type: "M1_SET_SCORE"; name: string; value: Condition }
@@ -263,6 +272,27 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       return { ...state, typeOfStructure: action.value };
     case "SET_DRILLING_CHECK":
       return { ...state, drillingCheck: action.value };
+    case "SET_SITE_CHECKS":
+      return { ...state, siteChecks: action.value };
+    case "REVIEW_ADD_PHOTO":
+      return {
+        ...state,
+        reviewPhotos: addPhoto(state.reviewPhotos, action.name, { id: action.id, file: action.file, status: "uploading" }),
+      };
+    case "REVIEW_PHOTO_STATUS":
+      return {
+        ...state,
+        reviewPhotos: setPhotoStatus(
+          state.reviewPhotos,
+          action.name,
+          action.id,
+          action.status,
+          action.url,
+          action.errorMessage
+        ),
+      };
+    case "REVIEW_REMOVE_PHOTO":
+      return { ...state, reviewPhotos: removePhoto(state.reviewPhotos, action.name, action.id) };
     case "SET_COMPLAINTS":
       return { ...state, complaints: action.value };
     case "SET_LAST_SURVEY_ID":
@@ -475,6 +505,16 @@ interface SurveyContextValue {
   setCenterBeam: (value: CenterBeam) => void;
   setTypeOfStructure: (value: TypeOfStructure) => void;
   setDrillingCheck: (value: DrillingCheck) => void;
+  setSiteChecks: (value: SiteChecks) => void;
+  reviewAddPhoto: (name: string, id: string, file: File) => void;
+  reviewSetPhotoStatus: (
+    name: string,
+    id: string,
+    status: PhotoAsset["status"],
+    url?: string,
+    errorMessage?: string
+  ) => void;
+  reviewRemovePhoto: (name: string, id: string) => void;
   setComplaints: (value: string) => void;
   setLastSurveyId: (surveyId: string | null) => void;
   m1SetScore: (name: string, value: Condition) => void;
@@ -601,6 +641,11 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       setCenterBeam: (value) => dispatch({ type: "SET_CENTER_BEAM", value }),
       setTypeOfStructure: (value) => dispatch({ type: "SET_TYPE_OF_STRUCTURE", value }),
       setDrillingCheck: (value) => dispatch({ type: "SET_DRILLING_CHECK", value }),
+      setSiteChecks: (value) => dispatch({ type: "SET_SITE_CHECKS", value }),
+      reviewAddPhoto: (name, id, file) => dispatch({ type: "REVIEW_ADD_PHOTO", name, id, file }),
+      reviewSetPhotoStatus: (name, id, status, url, errorMessage) =>
+        dispatch({ type: "REVIEW_PHOTO_STATUS", name, id, status, url, errorMessage }),
+      reviewRemovePhoto: (name, id) => dispatch({ type: "REVIEW_REMOVE_PHOTO", name, id }),
       setComplaints: (value) => dispatch({ type: "SET_COMPLAINTS", value }),
       setLastSurveyId: (surveyId) => dispatch({ type: "SET_LAST_SURVEY_ID", surveyId }),
       m1SetScore: (name, value) => dispatch({ type: "M1_SET_SCORE", name, value }),

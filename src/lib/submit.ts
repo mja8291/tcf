@@ -9,6 +9,7 @@ import type {
   PhotoAsset,
   PowerSupply,
   School,
+  SiteChecks,
   StructuralConcern,
   TypeOfStructure,
 } from "@/lib/types";
@@ -38,6 +39,9 @@ interface SubmitState {
   typeOfStructure: TypeOfStructure;
   centerBeam: CenterBeam;
   drillingCheck: DrillingCheck;
+  siteChecks: SiteChecks;
+  /** Only the last-page photos that still apply to the answers given — the caller filters (see review/page.tsx). */
+  reviewPhotos: Record<string, PhotoAsset[]>;
   complaints: string;
   m1: { scores: Record<string, Condition>; photos: Record<string, PhotoAsset[]>; notes: Record<string, string> };
   m2: { locations: SubmitLocation[] };
@@ -64,6 +68,7 @@ export interface SubmitPayload {
   typeOfStructure?: TypeOfStructure;
   centerBeam?: CenterBeam;
   drillingCheck?: DrillingCheck;
+  siteChecks?: SiteChecks;
   /** Which item list/weights this survey was scored against — see rubric-version.ts. Absent on anything submitted (or queued) by an app version older than 2026-10-27, which is how exports know to use the frozen legacy lists. */
   rubricVersion?: string;
   complaints: string;
@@ -197,6 +202,21 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
     }
   }
 
+  // Last-page photos (roof/drainage "No — take picture", drilling pictures):
+  // same handling as any other photo — uploaded ones travel as links, ones
+  // that never made it to Drive are queued with the submission. No location
+  // and no per-item note, like Method 1's flat photos.
+  for (const [itemName, itemPhotos] of Object.entries(state.reviewPhotos)) {
+    itemPhotos.forEach((photo, i) => {
+      const attachmentKey = `review::${itemName}::${i}`;
+      if (photo.status === "uploaded" && photo.url) {
+        photoKeys.push({ attachmentKey, itemName, locationName: "", url: photo.url });
+      } else if (photo.status === "error") {
+        pendingPhotos.push({ attachmentKey, itemName, locationName: "", file: photo.file });
+      }
+    });
+  }
+
   const payload: SubmitPayload = {
     surveyId,
     method: state.method,
@@ -210,6 +230,7 @@ export function buildSubmission(state: SubmitState, result: ScoreResult): Submis
     typeOfStructure: state.typeOfStructure,
     centerBeam: state.centerBeam,
     drillingCheck: state.drillingCheck,
+    siteChecks: state.siteChecks,
     rubricVersion: RUBRIC_VERSION,
     complaints: state.complaints,
     overall: result.overall,

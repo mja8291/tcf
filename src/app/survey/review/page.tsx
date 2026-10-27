@@ -22,26 +22,47 @@ import {
   DRILLING_POINT_QUESTION,
   DRILLING_REPAIR_QUESTION,
   OATH_TEXT,
+  OVERFLOW_OPTIONS,
+  OVERFLOW_QUESTION,
   POWER_SUPPLY_OPTIONS,
+  RISK_FACTOR_OPTIONS,
+  RISK_FACTOR_OTHER,
+  RISK_FACTOR_QUESTION,
+  ROOF_ACCESS_TYPE_OPTIONS,
+  ROOF_ACCESS_TYPE_QUESTION,
   SCREED_THICKNESS_LABEL,
+  SLAB_ASSESSMENT_QUESTION,
   SLAB_THICKNESS_LABEL,
   STRUCTURAL_CONCERN_OPTIONS,
   STRUCTURAL_CONCERN_QUESTION,
   TYPE_OF_STRUCTURE_OPTIONS,
   TYPE_OF_STRUCTURE_QUESTION,
+  YES_NO_OPTIONS,
 } from "@/lib/data/content";
-import { emptyDrillingCheck, isDrillingCheckComplete } from "@/lib/types";
+import {
+  SITE_PHOTO_DRILLING_POINT,
+  SITE_PHOTO_RAIN_SPOUTS,
+  SITE_PHOTO_ROOF_CLEAN,
+  SITE_PHOTO_SLAB_THICKNESS,
+  emptyDrillingCheck,
+  emptySiteChecks,
+  isDrillingCheckComplete,
+  isSiteChecksComplete,
+} from "@/lib/types";
 import type {
   BuildingStructure,
   CenterBeam,
   DrillingCheck,
+  PhotoAsset,
   PowerSupply,
+  SiteChecks,
   StructuralConcern,
   TypeOfStructure,
 } from "@/lib/types";
+import { ReviewPhotoField } from "@/components/survey/ReviewPhotoField";
 import { buildSubmission, countUnresolvedPhotos } from "@/lib/submit";
-import { queueSubmission, deleteDraft } from "@/lib/offline/db";
-import { DRAFTS_CHANGED_EVENT } from "@/lib/draft";
+import { queueSubmission } from "@/lib/offline/db";
+import { discardSubmittedDraft } from "@/lib/draft";
 import { formatDuration } from "@/lib/format-duration";
 import { buildDraftExcelBlob, buildDraftPdfBlob, downloadBlob, draftExportFilenameBase } from "@/lib/export/draft-export";
 import { FileSpreadsheet, FileText } from "lucide-react";
@@ -57,6 +78,7 @@ export default function ReviewPage() {
     setTypeOfStructure,
     setCenterBeam,
     setDrillingCheck,
+    setSiteChecks,
     setComplaints,
     setLastSurveyId,
   } = useSurvey();
@@ -65,7 +87,10 @@ export default function ReviewPage() {
   const [buildingStructure, setLocalBuildingStructure] = useState<BuildingStructure | "">(state.buildingStructure);
   const [typeOfStructure, setLocalTypeOfStructure] = useState<TypeOfStructure | "">(state.typeOfStructure);
   const [centerBeam, setLocalCenterBeam] = useState<CenterBeam | "">(state.centerBeam);
-  const [drilling, setDrilling] = useState<DrillingCheck>(state.drillingCheck ?? emptyDrillingCheck());
+  // Spread over the empty shapes so a draft saved before a field existed
+  // (e.g. slabAssessment) opens with it blank rather than undefined.
+  const [drilling, setDrilling] = useState<DrillingCheck>({ ...emptyDrillingCheck(), ...state.drillingCheck });
+  const [site, setSite] = useState<SiteChecks>({ ...emptySiteChecks(), ...state.siteChecks });
   const [complaints, setLocalComplaints] = useState(state.complaints);
   const [oath, setOath] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -128,9 +153,22 @@ export default function ReviewPage() {
   // PendingPhotoUpload instead (see submit.ts/offline/sync.ts) and finishes
   // uploading whenever the queue next gets a connection — going back to
   // retry or remove it here is still offered, just no longer required.
-  const { uploading: photosUploading, failed: photosFailed } = countUnresolvedPhotos(
-    state.method === 1 ? [state.m1.photos] : state.m2.locations.map((l) => l.photos)
-  );
+  // Last-page photos only count while the answer that asked for them still
+  // stands — switch "Roof clean" back to Yes, or the drilling check to NO,
+  // and a photo taken for the other answer is left behind, not submitted.
+  const reviewPhotos: Record<string, PhotoAsset[]> = {};
+  const keepPhotos = (key: string, applies: boolean) => {
+    if (applies && state.reviewPhotos[key]?.length) reviewPhotos[key] = state.reviewPhotos[key];
+  };
+  keepPhotos(SITE_PHOTO_ROOF_CLEAN, site.roofClean === "No");
+  keepPhotos(SITE_PHOTO_RAIN_SPOUTS, site.rainSpoutsClear === "No");
+  keepPhotos(SITE_PHOTO_DRILLING_POINT, drilling.done === "YES");
+  keepPhotos(SITE_PHOTO_SLAB_THICKNESS, drilling.done === "YES");
+
+  const { uploading: photosUploading, failed: photosFailed } = countUnresolvedPhotos([
+    ...(state.method === 1 ? [state.m1.photos] : state.m2.locations.map((l) => l.photos)),
+    reviewPhotos,
+  ]);
   const canSubmit =
     oath &&
     Boolean(powerSupply) &&
@@ -139,6 +177,7 @@ export default function ReviewPage() {
     Boolean(typeOfStructure) &&
     Boolean(centerBeam) &&
     isDrillingCheckComplete(drilling) &&
+    isSiteChecksComplete(site, reviewPhotos) &&
     !submitting &&
     photosUploading === 0;
 
@@ -153,8 +192,7 @@ export default function ReviewPage() {
   // below) — that one genuinely needs the draft kept so nothing's lost.
   async function clearDraft() {
     if (!state.surveyId) return;
-    await deleteDraft(state.surveyId);
-    window.dispatchEvent(new Event(DRAFTS_CHANGED_EVENT));
+    await discardSubmittedDraft(state.surveyId);
   }
 
   async function submit() {
@@ -183,6 +221,12 @@ export default function ReviewPage() {
         ? { ...drilling, slabThicknessMm: drilling.slabThicknessMm.trim(), screedThicknessMm: drilling.screedThicknessMm.trim() }
         : { ...emptyDrillingCheck(), done: "NO" };
     setDrillingCheck(drillingCheck);
+    // The "Any other" text only travels with "Any other" ticked.
+    const siteChecks: SiteChecks = {
+      ...site,
+      riskFactorOther: site.riskFactors.includes(RISK_FACTOR_OTHER) ? site.riskFactorOther.trim() : "",
+    };
+    setSiteChecks(siteChecks);
     setComplaints(complaints);
 
     const submission = buildSubmission(
@@ -196,6 +240,8 @@ export default function ReviewPage() {
         typeOfStructure,
         centerBeam,
         drillingCheck,
+        siteChecks,
+        reviewPhotos,
         complaints,
       },
       result
@@ -275,6 +321,7 @@ export default function ReviewPage() {
         typeOfStructure: typeOfStructure || "",
         centerBeam: centerBeam || "",
         drillingCheck: drilling,
+        siteChecks: site,
         complaints,
       };
       const blob = kind === "excel" ? await buildDraftExcelBlob(params) : await buildDraftPdfBlob(params);
@@ -293,7 +340,6 @@ export default function ReviewPage() {
 
       <div className="space-y-0.5 mb-4">
         <RecapRow k="School" v={state.school.name} />
-        <RecapRow k="Method" v={`Method ${state.method}`} />
         <RecapRow k="Accompanying APM" v={state.apm || "—"} />
         <RecapRow k="Responding ASM" v={state.asm || "—"} />
         <RecapRow k="School Principal" v={state.principal || "—"} />
@@ -393,6 +439,8 @@ export default function ReviewPage() {
         </select>
       </Field>
 
+      <SectionLabel>Visual inspection</SectionLabel>
+
       <Field label={TYPE_OF_STRUCTURE_QUESTION}>
         <select
           value={typeOfStructure}
@@ -423,6 +471,72 @@ export default function ReviewPage() {
         </select>
       </Field>
 
+      <Field label={ROOF_ACCESS_TYPE_QUESTION}>
+        <select
+          value={site.roofAccessType}
+          onChange={(e) => setSite({ ...site, roofAccessType: e.target.value as SiteChecks["roofAccessType"] })}
+          className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+        >
+          <option value="">Select an answer</option>
+          {ROOF_ACCESS_TYPE_OPTIONS.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <SectionLabel>Roof &amp; drainage</SectionLabel>
+
+      <Field label={OVERFLOW_QUESTION}>
+        <select
+          value={site.overflowDisposal}
+          onChange={(e) => setSite({ ...site, overflowDisposal: e.target.value as SiteChecks["overflowDisposal"] })}
+          className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+        >
+          <option value="">Select an answer</option>
+          {OVERFLOW_OPTIONS.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field label={SITE_PHOTO_ROOF_CLEAN}>
+        <select
+          value={site.roofClean}
+          onChange={(e) => setSite({ ...site, roofClean: e.target.value as SiteChecks["roofClean"] })}
+          className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+        >
+          <option value="">Select an answer</option>
+          {YES_NO_OPTIONS.map((o) => (
+            <option key={o} value={o}>
+              {o === "No" ? "No — take picture" : o}
+            </option>
+          ))}
+        </select>
+      </Field>
+      {site.roofClean === "No" ? <ReviewPhotoField itemName={SITE_PHOTO_ROOF_CLEAN} required /> : null}
+
+      <Field label={SITE_PHOTO_RAIN_SPOUTS}>
+        <select
+          value={site.rainSpoutsClear}
+          onChange={(e) => setSite({ ...site, rainSpoutsClear: e.target.value as SiteChecks["rainSpoutsClear"] })}
+          className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+        >
+          <option value="">Select an answer</option>
+          {YES_NO_OPTIONS.map((o) => (
+            <option key={o} value={o}>
+              {o === "No" ? "No — take picture" : o}
+            </option>
+          ))}
+        </select>
+      </Field>
+      {site.rainSpoutsClear === "No" ? <ReviewPhotoField itemName={SITE_PHOTO_RAIN_SPOUTS} required /> : null}
+
+      <SectionLabel>Drilling &amp; observation</SectionLabel>
+
       <Field label={DRILLING_DONE_QUESTION}>
         <select
           value={drilling.done}
@@ -451,6 +565,7 @@ export default function ReviewPage() {
               ))}
             </select>
           </Field>
+          <ReviewPhotoField itemName={SITE_PHOTO_DRILLING_POINT} />
 
           <Field label={SLAB_THICKNESS_LABEL}>
             <input
@@ -464,6 +579,22 @@ export default function ReviewPage() {
               className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
             />
           </Field>
+
+          <Field label={SLAB_ASSESSMENT_QUESTION}>
+            <select
+              value={drilling.slabAssessment ?? ""}
+              onChange={(e) => setDrilling({ ...drilling, slabAssessment: e.target.value as DrillingCheck["slabAssessment"] })}
+              className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+            >
+              <option value="">Select an answer</option>
+              {DRILLING_POINT_OPTIONS.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <ReviewPhotoField itemName={SITE_PHOTO_SLAB_THICKNESS} />
 
           <Field label={SCREED_THICKNESS_LABEL}>
             <input
@@ -491,6 +622,41 @@ export default function ReviewPage() {
           </Field>
         </div>
       ) : null}
+
+      <SectionLabel>Building proximity</SectionLabel>
+
+      <Field label={RISK_FACTOR_QUESTION}>
+        <div className="space-y-2">
+          {RISK_FACTOR_OPTIONS.map((factor) => {
+            const checked = site.riskFactors.includes(factor);
+            return (
+              <label key={factor} className="flex items-center gap-2.5 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() =>
+                    setSite({
+                      ...site,
+                      riskFactors: checked ? site.riskFactors.filter((f) => f !== factor) : [...site.riskFactors, factor],
+                    })
+                  }
+                  className="h-5 w-5 shrink-0 accent-[var(--brand)]"
+                />
+                {factor}
+              </label>
+            );
+          })}
+          {site.riskFactors.includes(RISK_FACTOR_OTHER) ? (
+            <input
+              type="text"
+              placeholder="Please specify"
+              value={site.riskFactorOther}
+              onChange={(e) => setSite({ ...site, riskFactorOther: e.target.value })}
+              className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+            />
+          ) : null}
+        </div>
+      </Field>
 
       <Field label="Major complaints or additional remarks">
         <textarea
@@ -551,6 +717,10 @@ export default function ReviewPage() {
       </BottomBar>
     </ScreenShell>
   );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <div className="text-xs font-semibold text-brand-deep uppercase tracking-wide mt-5 mb-2">{children}</div>;
 }
 
 function RecapRow({ k, v }: { k: string; v: string }) {

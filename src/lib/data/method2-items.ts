@@ -2,20 +2,25 @@ import type { Category, Condition, FloorLevel, LocationType, Method2Group } from
 import { OK_UNSAFE, ROOF_ACCESS } from "./condition-overrides";
 
 /**
- * Method 2 — 33 item groups (Safety 8 / Functionality 18 / Aesthetics 7),
- * re-synced (rubric version 2026-10-27.3) against the "MQI Assessment
- * Rubrics (Method B)" tab of the revised rubric workbook. Names, order, "Category Weightage" and the
- * per-group Location column are read directly from it; each division's
- * weights sum to 100. History of this list (each earlier one frozen as a
- * snapshot, see rubric-version.ts):
+ * Method 2 — 31 item groups (Safety 9 / Functionality 15 / Aesthetics 7),
+ * rubric version 2026-10-28, read from the "MQI Assessment Rubrics (Method
+ * B)" tab of the revised rubric workbook: names, order, "Category Weightage"
+ * and the per-group Location column come straight from it, and each
+ * division's weights sum to 100. This is now the app's only scoring method —
+ * Method 1 can no longer be started (see survey/method/page.tsx).
+ *
+ * History of this list (each earlier one frozen as a snapshot — see
+ * rubric-version.ts):
  *   - 2026-10-27   30 groups (method2-v20261027-items.ts)
- *   - 2026-10-27.2 31 groups: + Internal Flooring, six reweighted
- *                  (method2-v20261027-2-items.ts)
- *   - 2026-10-27.3 33 groups (this list): + Drinking Water Cooler & Filter,
- *                  + Grill Gate; Water Storage 6->5, Sewerage System 7->6,
- *                  Electrical Fixtures 6->5, Internal Flooring 7->6,
- *                  Solar Panels/Inverter/Batteries 7->5; Internal Flooring now
- *                  also scored at Toilet.
+ *   - 2026-10-27.2 31 groups (method2-v20261027-2-items.ts)
+ *   - 2026-10-27.3 33 groups (method2-v20261027-3-items.ts)
+ *   - 2026-10-28   this list: + Window Shades (Safety); Taps + Wash Basin
+ *                  merged into "Wash Basin/Taps"; Electrical Fixtures +
+ *                  Switch/Dimmer Sheet merged; W.Cs/Commodes and Plaque
+ *                  dropped; "Plaster/Masonry" split into Plaster and
+ *                  Masonry; "Roof Access" renamed "Access to roof area
+ *                  /tanks"; "Internal Flooring" renamed "Internal Flooring
+ *                  condition"; most weights and several locations changed.
  * All of it replaced the original 45-item / 6-work-category version (frozen
  * in method2-legacy-items.ts): Method B scores whole item *groups* per
  * location, and has no Work Category column, so a location's groups are
@@ -23,20 +28,23 @@ import { OK_UNSAFE, ROOF_ACCESS } from "./condition-overrides";
  *
  * Decisions made on top of the sheet, confirmed with the rubric owner
  * 2026-10-27:
- *   - Sewerage System is scored at Toilet / External Development / Lab (the
- *     sheet lists it under Exterior Facade only, which was taken to be a
- *     typo and left as it was in the previous version).
  *   - The two-button "OK / Unsafe" pickers score OK = 100%, Unsafe = 25%, and
- *     Roof Access moves onto the same scale — see condition-overrides.ts.
+ *     Access to roof area moves onto the same scale — see
+ *     condition-overrides.ts.
  * Not in the sheet, derived here:
  *   - principalMaintained (drives the Minor score) is true when every item
  *     the sheet's own Method A "Item Group" column files under the group is
  *     one of its "*" (school-maintained) items. Distribution Board is mixed
- *     (Energy & Power * + Electrical Wiring) and stays with Engineering.
+ *     (Energy & Power * + Electrical Wiring) and stays with Engineering;
+ *     Window Shades has no Method A item and is treated as Engineering's.
  *   - Safety groups aggregate across locations by worst case, the others by
  *     average — unchanged from the previous version.
- * Group names follow the sheet exactly (e.g. "Grill Gate", no "*"), so none
- * of them collide with the original list's per-item columns.
+ * Where this list follows the sheet literally even though it changed from
+ * before: Sewerage System is now listed at Toilet / Exterior Facade / Lab
+ * (previously the sheet's Exterior Facade-only entry was overridden to
+ * Toilet / External Development / Lab; the owner has since edited it), and
+ * External Plumbing is at Exterior Facade / Roof, no longer External
+ * Development.
  */
 function worst(item: Omit<Method2Group, "aggregation" | "category"> & { category: "Safety" }): Method2Group {
   return { ...item, aggregation: "worst" };
@@ -57,11 +65,11 @@ const OTHER_ROOM: LocationType = "Other Room (Staff, Principal, Admin, Store etc
 const LAB: LocationType = "Lab (Wet/Dry/DLP)";
 
 export const METHOD2_GROUPS: Method2Group[] = [
-  // Safety — 25% of overall, 8 groups
-  worst({ name: "Boundary wall", category: "Safety", weight: 10, locations: [EXT_DEV] }),
+  // Safety — 25% of overall, 9 groups
+  worst({ name: "Boundary wall", category: "Safety", weight: 8, locations: [EXT_DEV] }),
   worst({ name: "Main Gate", category: "Safety", weight: 7, locations: [EXT_DEV] }),
   worst({
-    name: "Roof Access",
+    name: "Access to roof area /tanks",
     category: "Safety",
     weight: 10,
     locations: [ROOF],
@@ -72,13 +80,13 @@ export const METHOD2_GROUPS: Method2Group[] = [
     name: "Concrete/Plaster Soundness",
     category: "Safety",
     weight: 15,
-    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB, FACADE],
     conditionOverride: OK_UNSAFE,
   }),
   worst({
     name: "Ceiling Condition i.e. cracks & seepage",
     category: "Safety",
-    weight: 25,
+    weight: 20,
     locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
     conditionOverride: OK_UNSAFE,
   }),
@@ -86,7 +94,7 @@ export const METHOD2_GROUPS: Method2Group[] = [
     name: "Wall/Column Condition i.e. cracks",
     category: "Safety",
     weight: 10,
-    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB, FACADE],
     conditionOverride: OK_UNSAFE,
   }),
   worst({
@@ -94,6 +102,13 @@ export const METHOD2_GROUPS: Method2Group[] = [
     category: "Safety",
     weight: 15,
     locations: [ROOF],
+    conditionOverride: OK_UNSAFE,
+  }),
+  worst({
+    name: "Window Shades",
+    category: "Safety",
+    weight: 7,
+    locations: [FACADE],
     conditionOverride: OK_UNSAFE,
   }),
   worst({ name: "Distribution Board", category: "Safety", weight: 8, locations: [CORRIDOR] }),
@@ -109,22 +124,21 @@ export const METHOD2_GROUPS: Method2Group[] = [
   average({
     name: "Water Storage (Overhead Tank)",
     category: "Functionality",
-    weight: 5,
+    weight: 8,
     principalMaintained: true,
     locations: [ROOF],
   }),
   average({
     name: "External Plumbing",
     category: "Functionality",
-    weight: 6,
+    weight: 8,
     principalMaintained: true,
-    locations: [EXT_DEV],
+    locations: [FACADE, ROOF],
   }),
-  average({ name: "Taps", category: "Functionality", weight: 7, principalMaintained: true, locations: [TOILET, LAB] }),
   average({
-    name: "Wash Basin",
+    name: "Wash Basin/Taps",
     category: "Functionality",
-    weight: 6,
+    weight: 8,
     principalMaintained: true,
     locations: [TOILET, LAB],
   }),
@@ -135,66 +149,58 @@ export const METHOD2_GROUPS: Method2Group[] = [
     principalMaintained: true,
     locations: [TOILET],
   }),
-  average({ name: "W.Cs/Commodes", category: "Functionality", weight: 5, locations: [TOILET, LAB] }),
   average({
     name: "Sewerage System",
     category: "Functionality",
-    weight: 6,
+    weight: 8,
     principalMaintained: true,
-    locations: [TOILET, EXT_DEV, LAB],
+    locations: [TOILET, FACADE, LAB],
   }),
   average({
-    name: "Electrical Fixtures",
+    name: "Electrical Fixtures + Switch/Dimmer Sheet",
     category: "Functionality",
     weight: 5,
     principalMaintained: true,
-    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM],
-  }),
-  average({
-    name: "Switch/Dimmer Sheet",
-    category: "Functionality",
-    weight: 6,
-    principalMaintained: true,
-    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM],
+    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
   }),
   average({
     name: "Drinking Water Cooler & Filter",
     category: "Functionality",
-    weight: 3,
+    weight: 4,
     principalMaintained: true,
-    locations: [CORRIDOR, LAB],
+    locations: [CORRIDOR],
   }),
   average({
     name: "Motor (Water pump)",
     category: "Functionality",
-    weight: 3,
+    weight: 4,
     principalMaintained: true,
     locations: [EXT_DEV],
   }),
   average({
-    name: "Internal Flooring",
+    name: "Internal Flooring condition",
     category: "Functionality",
-    weight: 6,
-    locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
+    weight: 7,
+    locations: [CLASSROOM, CORRIDOR, OTHER_ROOM, LAB],
   }),
   average({
     name: "Furniture Condition",
     category: "Functionality",
-    weight: 5,
+    weight: 6,
     principalMaintained: true,
     locations: [CLASSROOM, OTHER_ROOM, LAB],
   }),
   average({
     name: "Grill Gate",
     category: "Functionality",
-    weight: 3,
+    weight: 5,
     principalMaintained: true,
-    locations: [CORRIDOR, LAB],
+    locations: [CORRIDOR, LAB, ROOF],
   }),
   average({
     name: "Door/Windows/Ventilators",
     category: "Functionality",
-    weight: 7,
+    weight: 10,
     principalMaintained: true,
     locations: [CLASSROOM, TOILET, CORRIDOR, FACADE, OTHER_ROOM, LAB],
   }),
@@ -209,7 +215,7 @@ export const METHOD2_GROUPS: Method2Group[] = [
     name: "Solar Panels/Inverter/Batteries",
     category: "Functionality",
     weight: 5,
-    locations: [CORRIDOR, ROOF, OTHER_ROOM],
+    locations: [CORRIDOR, ROOF],
   }),
 
   // Aesthetics — 30% of overall, 7 groups
@@ -220,16 +226,16 @@ export const METHOD2_GROUPS: Method2Group[] = [
     locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM, LAB],
   }),
   average({ name: "Exterior Finish", category: "Aesthetics", weight: 25, locations: [FACADE] }),
-  average({ name: "Toilet Flooring/tiles", category: "Aesthetics", weight: 5, locations: [TOILET] }),
-  average({ name: "Signage", category: "Aesthetics", weight: 15, principalMaintained: true, locations: [FACADE] }),
-  average({ name: "Plaque", category: "Aesthetics", weight: 5, principalMaintained: true, locations: [CORRIDOR] }),
+  average({ name: "Toilet Flooring/tiles", category: "Aesthetics", weight: 7, locations: [TOILET] }),
+  average({ name: "Signage", category: "Aesthetics", weight: 12, principalMaintained: true, locations: [FACADE] }),
   average({
-    name: "Plaster/Masonry",
+    name: "Plaster",
     category: "Aesthetics",
-    weight: 10,
-    locations: [CLASSROOM, TOILET, CORRIDOR, FACADE, ROOF, OTHER_ROOM, LAB],
+    weight: 8,
+    locations: [CLASSROOM, TOILET, CORRIDOR, ROOF, OTHER_ROOM, LAB],
   }),
-  average({ name: "CC Jali", category: "Aesthetics", weight: 5, locations: [CORRIDOR, FACADE] }),
+  average({ name: "Masonry", category: "Aesthetics", weight: 4, locations: [FACADE, ROOF] }),
+  average({ name: "CC Jali", category: "Aesthetics", weight: 9, locations: [CORRIDOR, FACADE] }),
 ];
 
 /** Display order of a location's scoring sections. */

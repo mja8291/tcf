@@ -33,13 +33,22 @@ export type TypeOfStructure = "RCC (Frame)" | "Load-bearing" | "Hybrid" | "N/A";
 export interface DrillingCheck {
   done: "YES" | "NO" | "";
   pointMarked: "Ok" | "Unsafe" | "";
+  /** The slide's "Slab thickness recorded" Ok / Unsafe — whether the measured thickness is acceptable. Absent on a draft saved before it existed. */
+  slabAssessment?: "Ok" | "Unsafe" | "";
   slabThicknessMm: string;
   screedThicknessMm: string;
   holeRepaired: "YES" | "NO" | "";
 }
 
 export function emptyDrillingCheck(): DrillingCheck {
-  return { done: "", pointMarked: "", slabThicknessMm: "", screedThicknessMm: "", holeRepaired: "" };
+  return {
+    done: "",
+    pointMarked: "",
+    slabAssessment: "",
+    slabThicknessMm: "",
+    screedThicknessMm: "",
+    holeRepaired: "",
+  };
 }
 
 /** True when the check is answered: "NO", or "YES" with every detail filled in and both thicknesses positive numbers. */
@@ -47,7 +56,57 @@ export function isDrillingCheckComplete(c: DrillingCheck): boolean {
   if (c.done === "NO") return true;
   if (c.done !== "YES") return false;
   const positive = (v: string) => v.trim() !== "" && Number.isFinite(Number(v)) && Number(v) > 0;
-  return Boolean(c.pointMarked) && Boolean(c.holeRepaired) && positive(c.slabThicknessMm) && positive(c.screedThicknessMm);
+  return (
+    Boolean(c.pointMarked) &&
+    Boolean(c.slabAssessment) &&
+    Boolean(c.holeRepaired) &&
+    positive(c.slabThicknessMm) &&
+    positive(c.screedThicknessMm)
+  );
+}
+
+export type RoofAccessType = "Proper staircase" | "Ladder" | "None" | "N/A";
+export type OverflowDisposal = "Provided" | "Not provided";
+
+/**
+ * The "Structural Checks Recorded Alongside Condition" questions from the
+ * TCF Engineering slide that aren't already covered by their own field
+ * (Type of Structure, Center Beam, and the drilling check have theirs):
+ * roof access type, roof & drainage, and building-proximity risk factors.
+ * Recorded on the last page only — none of it feeds a score. "No" on the two
+ * roof-cleanliness questions needs a photo (see isSiteChecksComplete).
+ */
+export interface SiteChecks {
+  roofAccessType: RoofAccessType | "";
+  overflowDisposal: OverflowDisposal | "";
+  roofClean: "Yes" | "No" | "";
+  rainSpoutsClear: "Yes" | "No" | "";
+  /** Any of RISK_FACTOR_OPTIONS (content.ts) — "mark any that apply", so empty is a valid answer. */
+  riskFactors: string[];
+  /** Free text, only meaningful when "Any other" is among riskFactors. */
+  riskFactorOther: string;
+}
+
+export function emptySiteChecks(): SiteChecks {
+  return { roofAccessType: "", overflowDisposal: "", roofClean: "", rainSpoutsClear: "", riskFactors: [], riskFactorOther: "" };
+}
+
+/** Photo-bearing questions on the last page, keyed by the question text used as the photo's item name (Drive path + attachments row). */
+export const SITE_PHOTO_ROOF_CLEAN = "Roof clean of dirt and vegetation";
+export const SITE_PHOTO_RAIN_SPOUTS = "Rain spouts clear";
+export const SITE_PHOTO_DRILLING_POINT = "Drilling point marked on slab by APM";
+export const SITE_PHOTO_SLAB_THICKNESS = "Slab thickness recorded (mm)";
+
+/**
+ * Every answer given, and a photo attached wherever the slide says "No — take
+ * picture". A photo that failed to upload still counts: it's queued with the
+ * submission (see PendingPhotoUpload), same as every other photo in the app.
+ */
+export function isSiteChecksComplete(s: SiteChecks, photos: Record<string, PhotoAsset[]>): boolean {
+  if (!s.roofAccessType || !s.overflowDisposal || !s.roofClean || !s.rainSpoutsClear) return false;
+  if (s.roofClean === "No" && (photos[SITE_PHOTO_ROOF_CLEAN]?.length ?? 0) === 0) return false;
+  if (s.rainSpoutsClear === "No" && (photos[SITE_PHOTO_RAIN_SPOUTS]?.length ?? 0) === 0) return false;
+  return true;
 }
 
 export interface RubricItem {

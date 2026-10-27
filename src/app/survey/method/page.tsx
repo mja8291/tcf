@@ -2,13 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, MapPin } from "lucide-react";
 import { ScreenShell } from "@/components/ui/ScreenShell";
 import { TopBar } from "@/components/ui/TopBar";
 import { Field, TextInput } from "@/components/ui/Field";
-import { MethodCard } from "@/components/survey/MethodCard";
+import { Button } from "@/components/ui/Button";
+import { BottomBar } from "@/components/ui/BottomBar";
 import { useSurvey } from "@/lib/survey-context";
 
+/**
+ * Respondent details, then straight into Method 2. This used to be the
+ * Method 1 / Method 2 choice; Method 1 can no longer be started (Method 2 —
+ * scoring location by location — is the only method). The route keeps its
+ * old name so every link and the find-school redirect guards still point at
+ * it. A Method 1 survey already in progress on someone's phone can still be
+ * resumed and finished (see survey/resume and the m1 pages), it just can't
+ * be begun here.
+ */
 export default function MethodChoicePage() {
   const router = useRouter();
   const { state, hydrated, setRespondent, setMethod } = useSurvey();
@@ -24,11 +33,11 @@ export default function MethodChoicePage() {
 
   const respondentComplete = Boolean(apm.trim() && asm.trim() && principal.trim());
 
-  function choose(method: 1 | 2) {
+  function start() {
     if (!respondentComplete) return;
     setRespondent(asm, apm, principal);
-    setMethod(method);
-    router.push(method === 1 ? "/survey/m1/campus-visit" : "/survey/m2");
+    setMethod(2);
+    router.push("/survey/m2");
   }
 
   if (!state.school) return null;
@@ -36,7 +45,7 @@ export default function MethodChoicePage() {
   return (
     <ScreenShell>
       <TopBar
-        title="Survey method"
+        title="Survey details"
         subtitle={`${state.school.name} · ${state.school.region}`}
         onBack={() => router.push("/survey/find-school")}
       />
@@ -59,20 +68,16 @@ export default function MethodChoicePage() {
         <p className="text-[11.5px] text-ink-faint -mt-2 mb-3">All three names are required to continue.</p>
       ) : null}
 
-      <MethodCard
-        icon={ClipboardList}
-        title="Method 1 — whole campus"
-        description="Score every item once for the whole campus. Faster, less granular."
-        onClick={() => choose(1)}
-        disabled={!respondentComplete}
-      />
-      <MethodCard
-        icon={MapPin}
-        title="Method 2 — by location"
-        description="Score each classroom, toilet, roof section etc. separately. Slower, more precise."
-        onClick={() => choose(2)}
-        disabled={!respondentComplete}
-      />
+      <p className="text-[12.5px] text-ink-soft leading-snug">
+        You&apos;ll score the campus location by location — pick a floor, then the type of location, then score each
+        item group that applies there.
+      </p>
+
+      <BottomBar>
+        <Button onClick={start} disabled={!respondentComplete}>
+          Start survey
+        </Button>
+      </BottomBar>
     </ScreenShell>
   );
 }

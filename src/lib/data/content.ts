@@ -2,7 +2,9 @@ import type {
   BuildingStructure,
   CenterBeam,
   Category,
+  OverflowDisposal,
   PowerSupply,
+  RoofAccessType,
   StructuralConcern,
   TypeOfStructure,
 } from "@/lib/types";
@@ -41,6 +43,27 @@ export const DRILLING_POINT_OPTIONS = ["Ok", "Unsafe"] as const;
 export const SLAB_THICKNESS_LABEL = "Slab thickness recorded (mm)";
 export const SCREED_THICKNESS_LABEL = "Roof screeding thickness recorded (mm)";
 export const DRILLING_REPAIR_QUESTION = "Was the drilled hole repaired with grout/epoxy?";
+export const SLAB_ASSESSMENT_QUESTION = "Slab thickness assessment";
+
+// "Structural Checks Recorded Alongside Condition" slide (TCF Engineering):
+// the visual-inspection, roof & drainage and building-proximity questions
+// that aren't Type of Structure / Center Beam / the drilling check above.
+export const ROOF_ACCESS_TYPE_QUESTION = "Access to roof area / tanks (type of access)";
+export const ROOF_ACCESS_TYPE_OPTIONS: RoofAccessType[] = ["Proper staircase", "Ladder", "None", "N/A"];
+export const OVERFLOW_QUESTION = "Overflow disposal system";
+export const OVERFLOW_OPTIONS: OverflowDisposal[] = ["Provided", "Not provided"];
+export const YES_NO_OPTIONS = ["Yes", "No"] as const;
+export const RISK_FACTOR_QUESTION = "Building proximity: risk factors (mark any that apply)";
+export const RISK_FACTOR_OTHER = "Any other";
+export const RISK_FACTOR_OPTIONS = [
+  "Compromised construction quality",
+  "Deteriorative environment (e.g. salinity)",
+  "Poor soil condition",
+  "Coastal area",
+  "Without plinth beam",
+  "Plinth protection missing",
+  RISK_FACTOR_OTHER,
+];
 
 export const BUILDING_STRUCTURE_QUESTION ="Please suggest structural type of the building.";
 export const BUILDING_STRUCTURE_OPTIONS: BuildingStructure[] = [

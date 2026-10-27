@@ -6,8 +6,9 @@ import { LEGACY_METHOD1_ITEMS } from "@/lib/data/method1-legacy-items";
 import { LEGACY_METHOD2_GROUPS } from "@/lib/data/method2-legacy-items";
 import { METHOD2_GROUPS_20261027 } from "@/lib/data/method2-v20261027-items";
 import { METHOD2_GROUPS_20261027_2 } from "@/lib/data/method2-v20261027-2-items";
+import { METHOD2_GROUPS_20261027_3 } from "@/lib/data/method2-v20261027-3-items";
 import { aggregateMethod2, ratingBand } from "@/lib/scoring";
-import type { Condition, DrillingCheck, Method2Location, RubricItem } from "@/lib/types";
+import type { Condition, DrillingCheck, Method2Location, RubricItem, SiteChecks } from "@/lib/types";
 
 const METHOD1_TAB = process.env.METHOD1_RESPONSE_TAB || "Method 1 Responses";
 const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses";
@@ -27,6 +28,7 @@ export interface FoundSurvey {
   typeOfStructure: string;
   centerBeam: string;
   drillingCheck: DrillingCheck;
+  siteChecks: SiteChecks;
   complaints: string;
   overall: number | null;
   functionality: number | null;
@@ -49,9 +51,22 @@ function drillingCheckFromRow(row: Record<string, string>): DrillingCheck {
   return {
     done: (row["Drilling Check Done"] ?? "") as DrillingCheck["done"],
     pointMarked: (row["Drilling Point Marked"] ?? "") as DrillingCheck["pointMarked"],
+    slabAssessment: (row["Slab Thickness Assessment"] ?? "") as DrillingCheck["slabAssessment"],
     slabThicknessMm: row["Slab Thickness (mm)"] ?? "",
     screedThicknessMm: row["Roof Screeding Thickness (mm)"] ?? "",
     holeRepaired: (row["Drilled Hole Repaired (Grout/Epoxy)"] ?? "") as DrillingCheck["holeRepaired"],
+  };
+}
+
+function siteChecksFromRow(row: Record<string, string>): SiteChecks {
+  const factors = (row["Building Risk Factors"] ?? "").split(";").map((s) => s.trim()).filter(Boolean);
+  return {
+    roofAccessType: (row["Roof Access Type"] ?? "") as SiteChecks["roofAccessType"],
+    overflowDisposal: (row["Overflow Disposal System"] ?? "") as SiteChecks["overflowDisposal"],
+    roofClean: (row["Roof Clean of Dirt and Vegetation"] ?? "") as SiteChecks["roofClean"],
+    rainSpoutsClear: (row["Rain Spouts Clear"] ?? "") as SiteChecks["rainSpoutsClear"],
+    riskFactors: factors,
+    riskFactorOther: row["Risk Factor (Other)"] ?? "",
   };
 }
 
@@ -89,6 +104,7 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
       typeOfStructure: m1Row["Type of Structure (Visual Inspection)"] ?? "",
       centerBeam: m1Row["Center Beam in Classrooms"] ?? "",
       drillingCheck: drillingCheckFromRow(m1Row),
+      siteChecks: siteChecksFromRow(m1Row),
       complaints: m1Row["Major Complaints"] ?? "",
       overall,
       functionality: num(m1Row["Functionality Score"]),
@@ -118,7 +134,9 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
       ? METHOD2_GROUPS_20261027
       : m2Version === "2026-10-27.2"
         ? METHOD2_GROUPS_20261027_2
-        : METHOD2_GROUPS;
+        : m2Version === "2026-10-27.3"
+          ? METHOD2_GROUPS_20261027_3
+          : METHOD2_GROUPS;
   const locations: Method2Location[] = locationRows.map((row, i) => {
     const scores: Record<string, Condition> = {};
     for (const group of groups) {
@@ -153,6 +171,7 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
     typeOfStructure: first["Type of Structure (Visual Inspection)"] ?? "",
     centerBeam: first["Center Beam in Classrooms"] ?? "",
     drillingCheck: drillingCheckFromRow(first),
+    siteChecks: siteChecksFromRow(first),
     complaints: first["Major Complaints"] ?? "",
     overall,
     functionality: num(first["Functionality Score"]),

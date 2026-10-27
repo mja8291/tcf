@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { CATEGORY_WEIGHT } from "@/lib/scoring";
 import { formatDurationFriendly } from "@/lib/format-duration";
-import type { Category, DrillingCheck, RubricItem } from "@/lib/types";
+import type { Category, DrillingCheck, RubricItem, SiteChecks } from "@/lib/types";
 
 export interface SingleSurveyPdfInput {
   surveyId: string;
@@ -25,6 +25,7 @@ export interface SingleSurveyPdfInput {
   centerBeam: string;
   /** Blank fields (a survey from before this check existed) all render as "—". */
   drillingCheck: DrillingCheck;
+  siteChecks: SiteChecks;
   complaints: string;
   overall: number | null;
   functionality: number | null;
@@ -110,16 +111,50 @@ export async function buildSingleSurveyPdf(input: SingleSurveyPdfInput): Promise
     ["Drilling check done", input.drillingCheck.done || "—"],
     ["Drilling point marked", input.drillingCheck.pointMarked || "—"],
     ["Slab thickness", input.drillingCheck.slabThicknessMm ? `${input.drillingCheck.slabThicknessMm} mm` : "—"],
+    ["Slab thickness assessment", input.drillingCheck.slabAssessment || "—"],
     ["Roof screeding thickness", input.drillingCheck.screedThicknessMm ? `${input.drillingCheck.screedThicknessMm} mm` : "—"],
     ["Hole repaired (grout/epoxy)", input.drillingCheck.holeRepaired || "—"],
+    ["Roof access (type)", input.siteChecks.roofAccessType || "—"],
+    ["Overflow disposal system", input.siteChecks.overflowDisposal || "—"],
+    ["Roof clean (dirt/vegetation)", input.siteChecks.roofClean || "—"],
+    ["Rain spouts clear", input.siteChecks.rainSpoutsClear || "—"],
+    [
+      "Building risk factors",
+      input.siteChecks.riskFactors.length
+        ? input.siteChecks.riskFactors
+            .map((r) => (r === "Any other" && input.siteChecks.riskFactorOther ? `Any other: ${input.siteChecks.riskFactorOther}` : r))
+            .join("; ")
+        : "—",
+    ],
     ["Start Time", input.startTime ? new Date(input.startTime).toLocaleString() : "—"],
     ["Finish Time", input.endTime ? new Date(input.endTime).toLocaleString() : "—"],
     ["Time Taken", input.timeTakenSeconds === null ? "—" : formatDurationFriendly(input.timeTakenSeconds)],
   ];
+  // Values wrap at ~72 characters (the column right of the label) — most are
+  // short, but the building risk-factors list can run to a couple of lines.
+  function wrap(str: string, max = 72): string[] {
+    const lines: string[] = [];
+    let current = "";
+    for (const word of str.split(/\s+/)) {
+      if (current && (current + " " + word).length > max) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = current ? current + " " + word : word;
+      }
+    }
+    if (current) lines.push(current);
+    return lines.length ? lines : [""];
+  }
   for (const [k, v] of rows) {
+    const valueLines = wrap(v);
     text(k, MARGIN, 9, font, INK_SOFT);
-    text(v, MARGIN + 140, 9, bold, INK);
+    text(valueLines[0], MARGIN + 140, 9, bold, INK);
     y -= 15;
+    for (const extra of valueLines.slice(1)) {
+      text(extra, MARGIN + 140, 9, bold, INK);
+      y -= 12;
+    }
   }
   y -= 8;
 

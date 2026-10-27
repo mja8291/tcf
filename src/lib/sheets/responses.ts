@@ -54,6 +54,13 @@ const TRAILING_HEADER = [
   "Slab Thickness (mm)",
   "Roof Screeding Thickness (mm)",
   "Drilled Hole Repaired (Grout/Epoxy)",
+  "Slab Thickness Assessment",
+  "Roof Access Type",
+  "Overflow Disposal System",
+  "Roof Clean of Dirt and Vegetation",
+  "Rain Spouts Clear",
+  "Building Risk Factors",
+  "Risk Factor (Other)",
   "Rubric Version",
 ];
 
@@ -267,6 +274,15 @@ function commonFields(payload: SubmitPayload, locationName = ""): Record<string,
     "Slab Thickness (mm)": payload.drillingCheck?.done === "YES" ? payload.drillingCheck.slabThicknessMm : "",
     "Roof Screeding Thickness (mm)": payload.drillingCheck?.done === "YES" ? payload.drillingCheck.screedThicknessMm : "",
     "Drilled Hole Repaired (Grout/Epoxy)": payload.drillingCheck?.done === "YES" ? payload.drillingCheck.holeRepaired : "",
+    "Slab Thickness Assessment": payload.drillingCheck?.done === "YES" ? (payload.drillingCheck.slabAssessment ?? "") : "",
+    // Last-page site checks (the TCF Engineering slide). Photos for these go
+    // to the attachments tab like every other photo, not into these columns.
+    "Roof Access Type": payload.siteChecks?.roofAccessType ?? "",
+    "Overflow Disposal System": payload.siteChecks?.overflowDisposal ?? "",
+    "Roof Clean of Dirt and Vegetation": payload.siteChecks?.roofClean ?? "",
+    "Rain Spouts Clear": payload.siteChecks?.rainSpoutsClear ?? "",
+    "Building Risk Factors": (payload.siteChecks?.riskFactors ?? []).join("; "),
+    "Risk Factor (Other)": payload.siteChecks?.riskFactors?.includes("Any other") ? (payload.siteChecks.riskFactorOther ?? "") : "",
     // Blank for a submission from an app older than the 2026-10-27 rubric
     // change — see rubric-version.ts.
     "Rubric Version": payload.rubricVersion ?? "",
