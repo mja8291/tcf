@@ -47,6 +47,8 @@ const TRAILING_HEADER = [
   "Paused Duration (seconds)",
   "Structural Concern Observed",
   "Suggested Structural Type",
+  "Type of Structure (Visual Inspection)",
+  "Center Beam in Classrooms",
   "Rubric Version",
 ];
 
@@ -250,6 +252,8 @@ function commonFields(payload: SubmitPayload, locationName = ""): Record<string,
     // `?? ""`: a submission queued by an older app version predates these.
     "Structural Concern Observed": payload.structuralConcern ?? "",
     "Suggested Structural Type": payload.buildingStructure ?? "",
+    "Type of Structure (Visual Inspection)": payload.typeOfStructure ?? "",
+    "Center Beam in Classrooms": payload.centerBeam ?? "",
     // Blank for a submission from an app older than the 2026-10-27 rubric
     // change — see rubric-version.ts.
     "Rubric Version": payload.rubricVersion ?? "",

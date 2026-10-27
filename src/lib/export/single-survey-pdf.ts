@@ -21,6 +21,8 @@ export interface SingleSurveyPdfInput {
   /** "" for a survey submitted before these two questions existed. */
   structuralConcern: string;
   buildingStructure: string;
+  typeOfStructure: string;
+  centerBeam: string;
   complaints: string;
   overall: number | null;
   functionality: number | null;
@@ -101,6 +103,8 @@ export async function buildSingleSurveyPdf(input: SingleSurveyPdfInput): Promise
     ["Power Supply", input.powerSupply || "—"],
     ["Structural concern observed", input.structuralConcern || "—"],
     ["Suggested structural type", input.buildingStructure || "—"],
+    ["Type of structure (visual)", input.typeOfStructure || "—"],
+    ["Center beam in classrooms", input.centerBeam || "—"],
     ["Start Time", input.startTime ? new Date(input.startTime).toLocaleString() : "—"],
     ["Finish Time", input.endTime ? new Date(input.endTime).toLocaleString() : "—"],
     ["Time Taken", input.timeTakenSeconds === null ? "—" : formatDurationFriendly(input.timeTakenSeconds)],

@@ -1,4 +1,11 @@
-import type { BuildingStructure, Category, PowerSupply, StructuralConcern } from "@/lib/types";
+import type {
+  BuildingStructure,
+  CenterBeam,
+  Category,
+  PowerSupply,
+  StructuralConcern,
+  TypeOfStructure,
+} from "@/lib/types";
 
 export const OATH_TEXT =
   "I undertake to affirm that I am the Administration & Support Manager of the above mentioned school and that the responses provided in the assessment form are in accordance with the provided instructions and guidance. The provided ratings are, to the best of my knowledge, a true and actual representation of the school condition.";
@@ -15,7 +22,17 @@ export const STRUCTURAL_CONCERN_QUESTION =
   "Did you observe any sign of being structurally sensitive or dangerous in the building?";
 export const STRUCTURAL_CONCERN_OPTIONS: StructuralConcern[] = ["YES", "NO"];
 
-export const BUILDING_STRUCTURE_QUESTION = "Please suggest structural type of the building.";
+// Items 2 and 3 of the rubric workbook's "Safety Related" tab, each under its
+// "Visual Inspection" option header. Type of Structure is the *observed* type;
+// BUILDING_STRUCTURE_* below is the separate "suggest" question with its own
+// five options.
+export const TYPE_OF_STRUCTURE_QUESTION = "Type of Structure (visual inspection)";
+export const TYPE_OF_STRUCTURE_OPTIONS: TypeOfStructure[] = ["RCC (Frame)", "Load-bearing", "Hybrid", "N/A"];
+
+export const CENTER_BEAM_QUESTION = "Center Beam in Classrooms (visual inspection)";
+export const CENTER_BEAM_OPTIONS: CenterBeam[] = ["YES", "NO", "N/A"];
+
+export const BUILDING_STRUCTURE_QUESTION ="Please suggest structural type of the building.";
 export const BUILDING_STRUCTURE_OPTIONS: BuildingStructure[] = [
   "Load-Bearing",
   "RCC",

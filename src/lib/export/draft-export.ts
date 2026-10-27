@@ -31,6 +31,8 @@ interface DraftExportParams {
   powerSupply: string;
   structuralConcern: string;
   buildingStructure: string;
+  typeOfStructure: string;
+  centerBeam: string;
   complaints: string;
 }
 
@@ -113,6 +115,8 @@ export async function buildDraftPdfBlob({
   powerSupply,
   structuralConcern,
   buildingStructure,
+  typeOfStructure,
+  centerBeam,
   complaints,
 }: DraftExportParams): Promise<Blob> {
   const method = state.method === 2 ? 2 : 1;
@@ -143,6 +147,8 @@ export async function buildDraftPdfBlob({
     powerSupply,
     structuralConcern,
     buildingStructure,
+    typeOfStructure,
+    centerBeam,
     complaints,
     overall: result.overall,
     functionality: result.categories.Functionality.score,

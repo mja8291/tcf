@@ -15,12 +15,16 @@ import { isMethod2LocationComplete } from "@/lib/data/method2-items";
 import {
   BUILDING_STRUCTURE_OPTIONS,
   BUILDING_STRUCTURE_QUESTION,
+  CENTER_BEAM_OPTIONS,
+  CENTER_BEAM_QUESTION,
   OATH_TEXT,
   POWER_SUPPLY_OPTIONS,
   STRUCTURAL_CONCERN_OPTIONS,
   STRUCTURAL_CONCERN_QUESTION,
+  TYPE_OF_STRUCTURE_OPTIONS,
+  TYPE_OF_STRUCTURE_QUESTION,
 } from "@/lib/data/content";
-import type { BuildingStructure, PowerSupply, StructuralConcern } from "@/lib/types";
+import type { BuildingStructure, CenterBeam, PowerSupply, StructuralConcern, TypeOfStructure } from "@/lib/types";
 import { buildSubmission, countUnresolvedPhotos } from "@/lib/submit";
 import { queueSubmission, deleteDraft } from "@/lib/offline/db";
 import { DRAFTS_CHANGED_EVENT } from "@/lib/draft";
@@ -30,11 +34,22 @@ import { FileSpreadsheet, FileText } from "lucide-react";
 
 export default function ReviewPage() {
   const router = useRouter();
-  const { state, hydrated, setPowerSupply, setStructuralConcern, setBuildingStructure, setComplaints, setLastSurveyId } =
-    useSurvey();
+  const {
+    state,
+    hydrated,
+    setPowerSupply,
+    setStructuralConcern,
+    setBuildingStructure,
+    setTypeOfStructure,
+    setCenterBeam,
+    setComplaints,
+    setLastSurveyId,
+  } = useSurvey();
   const [powerSupply, setLocalPowerSupply] = useState<PowerSupply | "">(state.powerSupply);
   const [structuralConcern, setLocalStructuralConcern] = useState<StructuralConcern | "">(state.structuralConcern);
   const [buildingStructure, setLocalBuildingStructure] = useState<BuildingStructure | "">(state.buildingStructure);
+  const [typeOfStructure, setLocalTypeOfStructure] = useState<TypeOfStructure | "">(state.typeOfStructure);
+  const [centerBeam, setLocalCenterBeam] = useState<CenterBeam | "">(state.centerBeam);
   const [complaints, setLocalComplaints] = useState(state.complaints);
   const [oath, setOath] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -105,6 +120,8 @@ export default function ReviewPage() {
     Boolean(powerSupply) &&
     Boolean(structuralConcern) &&
     Boolean(buildingStructure) &&
+    Boolean(typeOfStructure) &&
+    Boolean(centerBeam) &&
     !submitting &&
     photosUploading === 0;
 
@@ -124,12 +141,24 @@ export default function ReviewPage() {
   }
 
   async function submit() {
-    if (!canSubmit || !powerSupply || !structuralConcern || !buildingStructure || !state.school || !state.method) return;
+    if (
+      !canSubmit ||
+      !powerSupply ||
+      !structuralConcern ||
+      !buildingStructure ||
+      !typeOfStructure ||
+      !centerBeam ||
+      !state.school ||
+      !state.method
+    )
+      return;
     setSubmitting(true);
     setError(null);
     setPowerSupply(powerSupply);
     setStructuralConcern(structuralConcern);
     setBuildingStructure(buildingStructure);
+    setTypeOfStructure(typeOfStructure);
+    setCenterBeam(centerBeam);
     setComplaints(complaints);
 
     const submission = buildSubmission(
@@ -140,6 +169,8 @@ export default function ReviewPage() {
         powerSupply,
         structuralConcern,
         buildingStructure,
+        typeOfStructure,
+        centerBeam,
         complaints,
       },
       result
@@ -216,6 +247,8 @@ export default function ReviewPage() {
         powerSupply: powerSupply || "",
         structuralConcern: structuralConcern || "",
         buildingStructure: buildingStructure || "",
+        typeOfStructure: typeOfStructure || "",
+        centerBeam: centerBeam || "",
         complaints,
       };
       const blob = kind === "excel" ? await buildDraftExcelBlob(params) : await buildDraftPdfBlob(params);
@@ -327,6 +360,36 @@ export default function ReviewPage() {
         >
           <option value="">Select structural type</option>
           {BUILDING_STRUCTURE_OPTIONS.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field label={TYPE_OF_STRUCTURE_QUESTION}>
+        <select
+          value={typeOfStructure}
+          onChange={(e) => setLocalTypeOfStructure(e.target.value as TypeOfStructure)}
+          className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+        >
+          <option value="">Select type of structure</option>
+          {TYPE_OF_STRUCTURE_OPTIONS.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field label={CENTER_BEAM_QUESTION}>
+        <select
+          value={centerBeam}
+          onChange={(e) => setLocalCenterBeam(e.target.value as CenterBeam)}
+          className="w-full rounded-[10px] border border-border bg-white px-3 py-3 text-base text-ink"
+        >
+          <option value="">Select an answer</option>
+          {CENTER_BEAM_OPTIONS.map((o) => (
             <option key={o} value={o}>
               {o}
             </option>

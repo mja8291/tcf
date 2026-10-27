@@ -40,6 +40,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ surveyI
     powerSupply: found.powerSupply,
     structuralConcern: found.structuralConcern,
     buildingStructure: found.buildingStructure,
+    typeOfStructure: found.typeOfStructure,
+    centerBeam: found.centerBeam,
     complaints: found.complaints,
     overall: found.overall,
     functionality: found.functionality,

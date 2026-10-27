@@ -7,6 +7,8 @@ import type {
   FloorLevel,
   LocationType,
   BuildingStructure,
+  CenterBeam,
+  TypeOfStructure,
   Method2Location,
   PhotoAsset,
   PowerSupply,
@@ -36,6 +38,8 @@ export interface SurveyState {
   powerSupply: PowerSupply | "";
   structuralConcern: StructuralConcern | "";
   buildingStructure: BuildingStructure | "";
+  typeOfStructure: TypeOfStructure | "";
+  centerBeam: CenterBeam | "";
   complaints: string;
   m1: {
     scores: Record<string, Condition>;
@@ -116,6 +120,8 @@ function initialState(): SurveyState {
     powerSupply: "",
     structuralConcern: "",
     buildingStructure: "",
+    typeOfStructure: "",
+    centerBeam: "",
     complaints: "",
     m1: { scores: {}, photos: {}, notes: {} },
     m2: { locations: [], current: null },
@@ -163,6 +169,8 @@ type Action =
   | { type: "SET_POWER_SUPPLY"; value: PowerSupply }
   | { type: "SET_STRUCTURAL_CONCERN"; value: StructuralConcern }
   | { type: "SET_BUILDING_STRUCTURE"; value: BuildingStructure }
+  | { type: "SET_CENTER_BEAM"; value: CenterBeam }
+  | { type: "SET_TYPE_OF_STRUCTURE"; value: TypeOfStructure }
   | { type: "SET_COMPLAINTS"; value: string }
   | { type: "SET_LAST_SURVEY_ID"; surveyId: string | null }
   | { type: "M1_SET_SCORE"; name: string; value: Condition }
@@ -245,6 +253,10 @@ function reducer(state: SurveyState, action: Action): SurveyState {
       return { ...state, structuralConcern: action.value };
     case "SET_BUILDING_STRUCTURE":
       return { ...state, buildingStructure: action.value };
+    case "SET_CENTER_BEAM":
+      return { ...state, centerBeam: action.value };
+    case "SET_TYPE_OF_STRUCTURE":
+      return { ...state, typeOfStructure: action.value };
     case "SET_COMPLAINTS":
       return { ...state, complaints: action.value };
     case "SET_LAST_SURVEY_ID":
@@ -454,6 +466,8 @@ interface SurveyContextValue {
   setPowerSupply: (value: PowerSupply) => void;
   setStructuralConcern: (value: StructuralConcern) => void;
   setBuildingStructure: (value: BuildingStructure) => void;
+  setCenterBeam: (value: CenterBeam) => void;
+  setTypeOfStructure: (value: TypeOfStructure) => void;
   setComplaints: (value: string) => void;
   setLastSurveyId: (surveyId: string | null) => void;
   m1SetScore: (name: string, value: Condition) => void;
@@ -577,6 +591,8 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       setPowerSupply: (value) => dispatch({ type: "SET_POWER_SUPPLY", value }),
       setStructuralConcern: (value) => dispatch({ type: "SET_STRUCTURAL_CONCERN", value }),
       setBuildingStructure: (value) => dispatch({ type: "SET_BUILDING_STRUCTURE", value }),
+      setCenterBeam: (value) => dispatch({ type: "SET_CENTER_BEAM", value }),
+      setTypeOfStructure: (value) => dispatch({ type: "SET_TYPE_OF_STRUCTURE", value }),
       setComplaints: (value) => dispatch({ type: "SET_COMPLAINTS", value }),
       setLastSurveyId: (surveyId) => dispatch({ type: "SET_LAST_SURVEY_ID", surveyId }),
       m1SetScore: (name, value) => dispatch({ type: "M1_SET_SCORE", name, value }),

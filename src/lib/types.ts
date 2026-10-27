@@ -18,6 +18,10 @@ export type BuildingStructure =
   | "Hybrid (RCC+Precast)"
   | "Hybrid (Load-Bearing+RCC)";
 
+export type CenterBeam = "YES" | "NO" | "N/A";
+
+export type TypeOfStructure = "RCC (Frame)" | "Load-bearing" | "Hybrid" | "N/A";
+
 export interface RubricItem {
   /** Canonical item name — used as the key in scores/photos/notes maps and as the Sheets column/attachment key. */
   name: string;

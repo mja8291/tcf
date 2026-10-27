@@ -22,6 +22,8 @@ export interface FoundSurvey {
   powerSupply: string;
   structuralConcern: string;
   buildingStructure: string;
+  typeOfStructure: string;
+  centerBeam: string;
   complaints: string;
   overall: number | null;
   functionality: number | null;
@@ -71,6 +73,8 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
       powerSupply: m1Row["Power Supply"] ?? "",
       structuralConcern: m1Row["Structural Concern Observed"] ?? "",
       buildingStructure: m1Row["Suggested Structural Type"] ?? "",
+      typeOfStructure: m1Row["Type of Structure (Visual Inspection)"] ?? "",
+      centerBeam: m1Row["Center Beam in Classrooms"] ?? "",
       complaints: m1Row["Major Complaints"] ?? "",
       overall,
       functionality: num(m1Row["Functionality Score"]),
@@ -123,6 +127,8 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
     powerSupply: first["Power Supply"] ?? "",
     structuralConcern: first["Structural Concern Observed"] ?? "",
     buildingStructure: first["Suggested Structural Type"] ?? "",
+    typeOfStructure: first["Type of Structure (Visual Inspection)"] ?? "",
+    centerBeam: first["Center Beam in Classrooms"] ?? "",
     complaints: first["Major Complaints"] ?? "",
     overall,
     functionality: num(first["Functionality Score"]),
