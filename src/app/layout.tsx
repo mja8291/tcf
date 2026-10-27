@@ -1,14 +1,22 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { PwaBootstrap } from "@/components/PwaBootstrap";
 import { SurveyProvider } from "@/lib/survey-context";
 import { AuthGate, AuthProvider } from "@/lib/auth/client";
 
-const spaceGrotesk = Space_Grotesk({
+// Self-hosted (the latin subset of Space Grotesk, one variable file) rather than
+// next/font/google: that fetches from Google at build time, and Vercel's build
+// failed resolving it ("next/font/google queries have exactly one entry") even
+// though nothing in this project had changed. A local file also means the build
+// needs no network and the font is always in the offline precache.
+const spaceGrotesk = localFont({
   variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: ["500", "600"],
+  src: "./fonts/SpaceGrotesk-latin.woff2",
+  weight: "500 600",
+  display: "swap",
+  fallback: ["Arial"],
+  adjustFontFallback: "Arial",
 });
 
 export const metadata: Metadata = {
