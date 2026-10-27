@@ -1,8 +1,13 @@
 /**
  * Stamped onto every submission and written to the response tabs' "Rubric
- * Version" column. A row without one was scored against the pre-2026-10-27
- * item lists (see method1-legacy-items.ts / method2-legacy-items.ts) — that
- * is how an export knows which weights to recalculate with. Bump this (and
- * freeze a new legacy snapshot) the next time item names or weights change.
+ * Version" column; exports use it to pick the item list/weights a survey was
+ * actually scored against (see find-survey.ts). History:
+ *   - (blank)        original lists — method1-legacy-items.ts /
+ *                    method2-legacy-items.ts
+ *   - "2026-10-27"   Method 1 = current; Method 2 = method2-v20261027-items.ts
+ *   - "2026-10-27.2" current Method 1 and Method 2 (Method 2 gained Internal
+ *                    Flooring and six reweighted groups; Method 1 unchanged)
+ * Bump this (and freeze a snapshot of whatever list changed) the next time
+ * item names or weights change.
  */
-export const RUBRIC_VERSION = "2026-10-27";
+export const RUBRIC_VERSION = "2026-10-27.2";

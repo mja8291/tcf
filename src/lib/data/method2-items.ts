@@ -2,9 +2,12 @@ import type { Category, Condition, FloorLevel, LocationType, Method2Group } from
 import { OK_UNSAFE, ROOF_ACCESS } from "./condition-overrides";
 
 /**
- * Method 2 — 30 item groups (Safety 8 / Functionality 15 / Aesthetics 7),
- * re-synced 2026-10-27 against the "MQI Assessment Rubrics (Method B)" tab of
- * the revised rubric workbook. Names, order, "Category Weightage" and the
+ * Method 2 — 31 item groups (Safety 8 / Functionality 16 / Aesthetics 7),
+ * re-synced 2026-10-28 against the "MQI Assessment Rubrics (Method B)" tab of
+ * the revised rubric workbook (first synced 2026-10-27 with 30 groups, frozen
+ * in method2-v20261027-items.ts; since then Internal Flooring was added and
+ * Wash Basin 7->6, Flush Tanks 8->7, Sewerage System 8->7, Electrical
+ * Fixtures 8->6, Switch/Dimmer Sheet 7->6, Door/Windows/Ventilators 8->7). Names, order, "Category Weightage" and the
  * per-group Location column are read directly from it; each division's
  * weights sum to 100. This replaces the previous 45-item / 6-work-category
  * version (frozen in method2-legacy-items.ts): Method B scores whole item
@@ -27,8 +30,7 @@ import { OK_UNSAFE, ROOF_ACCESS } from "./condition-overrides";
  *   - Safety groups aggregate across locations by worst case, the others by
  *     average — unchanged from the previous version.
  * Items the old list had that Method B has no group for (Grill gate,
- * Internal Flooring condition, Drinking Water Cooler & Filter) are no longer
- * scored in Method 2.
+ * Drinking Water Cooler & Filter) are no longer scored in Method 2.
  */
 function worst(item: Omit<Method2Group, "aggregation" | "category"> & { category: "Safety" }): Method2Group {
   return { ...item, aggregation: "worst" };
@@ -116,14 +118,14 @@ export const METHOD2_GROUPS: Method2Group[] = [
   average({
     name: "Wash Basin",
     category: "Functionality",
-    weight: 7,
+    weight: 6,
     principalMaintained: true,
     locations: [TOILET, LAB],
   }),
   average({
     name: "Flush Tanks",
     category: "Functionality",
-    weight: 8,
+    weight: 7,
     principalMaintained: true,
     locations: [TOILET],
   }),
@@ -131,21 +133,21 @@ export const METHOD2_GROUPS: Method2Group[] = [
   average({
     name: "Sewerage System",
     category: "Functionality",
-    weight: 8,
+    weight: 7,
     principalMaintained: true,
     locations: [TOILET, EXT_DEV, LAB],
   }),
   average({
     name: "Electrical Fixtures",
     category: "Functionality",
-    weight: 8,
+    weight: 6,
     principalMaintained: true,
     locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM],
   }),
   average({
     name: "Switch/Dimmer Sheet",
     category: "Functionality",
-    weight: 7,
+    weight: 6,
     principalMaintained: true,
     locations: [CLASSROOM, TOILET, CORRIDOR, OTHER_ROOM],
   }),
@@ -155,6 +157,16 @@ export const METHOD2_GROUPS: Method2Group[] = [
     weight: 3,
     principalMaintained: true,
     locations: [EXT_DEV],
+  }),
+  // The sheet's Location column for this group is blank (as of 2026-10-28);
+  // a group with no location would never be asked, so it uses the locations
+  // the Method A tab gives its "Internal Flooring condition" item. Toilet
+  // is left out — it has its own "Toilet Flooring/tiles" group.
+  average({
+    name: "Internal Flooring",
+    category: "Functionality",
+    weight: 7,
+    locations: [CLASSROOM, CORRIDOR, OTHER_ROOM, LAB],
   }),
   average({
     name: "Furniture Condition",
@@ -166,7 +178,7 @@ export const METHOD2_GROUPS: Method2Group[] = [
   average({
     name: "Door/Windows/Ventilators",
     category: "Functionality",
-    weight: 8,
+    weight: 7,
     principalMaintained: true,
     locations: [CLASSROOM, TOILET, CORRIDOR, FACADE, OTHER_ROOM, LAB],
   }),
