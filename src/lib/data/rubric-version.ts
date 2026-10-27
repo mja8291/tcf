@@ -5,9 +5,12 @@
  *   - (blank)        original lists — method1-legacy-items.ts /
  *                    method2-legacy-items.ts
  *   - "2026-10-27"   Method 1 = current; Method 2 = method2-v20261027-items.ts
- *   - "2026-10-27.2" current Method 1 and Method 2 (Method 2 gained Internal
- *                    Flooring and six reweighted groups; Method 1 unchanged)
+ *   - "2026-10-27.2" Method 1 = current; Method 2 =
+ *                    method2-v20261027-2-items.ts
+ *   - "2026-10-27.3" current Method 1 and Method 2 (Method 2 gained Drinking
+ *                    Water Cooler & Filter and Grill Gate, five groups
+ *                    reweighted; Method 1 unchanged since 2026-10-27)
  * Bump this (and freeze a snapshot of whatever list changed) the next time
  * item names or weights change.
  */
-export const RUBRIC_VERSION = "2026-10-27.2";
+export const RUBRIC_VERSION = "2026-10-27.3";

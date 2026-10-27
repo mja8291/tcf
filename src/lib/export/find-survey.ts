@@ -5,6 +5,7 @@ import { METHOD2_GROUPS } from "@/lib/data/method2-items";
 import { LEGACY_METHOD1_ITEMS } from "@/lib/data/method1-legacy-items";
 import { LEGACY_METHOD2_GROUPS } from "@/lib/data/method2-legacy-items";
 import { METHOD2_GROUPS_20261027 } from "@/lib/data/method2-v20261027-items";
+import { METHOD2_GROUPS_20261027_2 } from "@/lib/data/method2-v20261027-2-items";
 import { aggregateMethod2, ratingBand } from "@/lib/scoring";
 import type { Condition, DrillingCheck, Method2Location, RubricItem } from "@/lib/types";
 
@@ -106,13 +107,18 @@ export async function findSurvey(spreadsheetId: string, surveyId: string): Promi
   const locationRows = m2Rows.filter((r) => r["Survey ID"] === surveyId);
   if (locationRows.length === 0) return null;
 
-  // Same version check as Method 1 above, with one more step for Method 2:
-  // no version = the original 45 per-item columns; "2026-10-27" = the first
-  // 30-group list (before Internal Flooring and the reweighting); anything
-  // newer = the current list. Method 1's list didn't change between those
-  // last two, so it needs no equivalent branch.
+  // Same version check as Method 1 above, but Method 2's list has been
+  // revised several times since the rubric change, so each released version
+  // has its own frozen list (see rubric-version.ts for the history). Method
+  // 1's list hasn't changed since "2026-10-27", so it needs no equivalent.
   const m2Version = locationRows[0]["Rubric Version"];
-  const groups = !m2Version ? LEGACY_METHOD2_GROUPS : m2Version === "2026-10-27" ? METHOD2_GROUPS_20261027 : METHOD2_GROUPS;
+  const groups = !m2Version
+    ? LEGACY_METHOD2_GROUPS
+    : m2Version === "2026-10-27"
+      ? METHOD2_GROUPS_20261027
+      : m2Version === "2026-10-27.2"
+        ? METHOD2_GROUPS_20261027_2
+        : METHOD2_GROUPS;
   const locations: Method2Location[] = locationRows.map((row, i) => {
     const scores: Record<string, Condition> = {};
     for (const group of groups) {
