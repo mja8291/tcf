@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/server";
 import { sheetsConfigured } from "@/lib/sheets/client";
 import { uploadSurveyPhoto } from "@/lib/sheets/drive";
 
@@ -12,6 +13,8 @@ import { uploadSurveyPhoto } from "@/lib/sheets/drive";
  * up with.
  */
 export async function POST(req: Request) {
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
   const formData = await req.formData();
   const file = formData.get("photo");
   const surveyId = formData.get("surveyId");

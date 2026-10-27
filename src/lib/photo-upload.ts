@@ -1,5 +1,7 @@
 "use client";
 
+import { notifyAuthRequired } from "@/lib/auth/events";
+
 export interface UploadPhotoParams {
   surveyId: string;
   region: string;
@@ -38,6 +40,14 @@ export async function uploadPhoto({
   }
 
   const res = await fetch("/api/photos/upload", { method: "POST", body: formData });
+  if (res.status === 401) {
+    // Session gone or no longer approved — the photo stays attached (it shows
+    // a retry control), and the app is told to ask for sign-in.
+    notifyAuthRequired();
+    const err = new Error("Your session has ended — sign in again, then retry this photo.");
+    err.name = "AuthRequiredError";
+    throw err;
+  }
   if (!res.ok) {
     // The route includes a specific, user-facing message for known causes
     // (e.g. Drive storage full) — fall back to a generic one for anything

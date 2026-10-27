@@ -3,6 +3,7 @@ import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { PwaBootstrap } from "@/components/PwaBootstrap";
 import { SurveyProvider } from "@/lib/survey-context";
+import { AuthGate, AuthProvider } from "@/lib/auth/client";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -56,7 +57,17 @@ export default function RootLayout({
           unaffected — a provider higher up the tree changes nothing for
           them, context lookup just finds the nearest one either way.
         */}
-        <SurveyProvider>{children}</SurveyProvider>
+        {/*
+          SurveyProvider sits *outside* AuthGate on purpose: when a session
+          lapses mid-survey the gate swaps the screen for the sign-in page,
+          and the survey in memory (and its autosave) must survive that, not
+          unmount with the page.
+        */}
+        <AuthProvider>
+          <SurveyProvider>
+            <AuthGate>{children}</AuthGate>
+          </SurveyProvider>
+        </AuthProvider>
       </body>
     </html>
   );

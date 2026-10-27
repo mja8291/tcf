@@ -16,7 +16,7 @@ import { resumeTargetRoute } from "@/lib/resume-target";
  * Android killing the app under memory pressure while offline, surveyor
  * reopens it, PWA start_url is always "/") would just... sit there on
  * Home, survey silently loaded into memory but nothing on screen reflecting
- * it except needing to notice and tap the right entry in DraftsBanner.
+ * it except needing to notice and tap the right entry in the Queue tab.
  * This finishes the job: the moment hydration confirms there's a live
  * survey, jump straight back into it, same as reopening any other app
  * would land you where you left off.

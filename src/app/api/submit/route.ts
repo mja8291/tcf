@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/server";
 import { sheetsConfigured } from "@/lib/sheets/client";
 import { appendAttachmentRows, appendMethod1Response, appendMethod2Response } from "@/lib/sheets/responses";
 import type { SubmitPayload } from "@/lib/submit";
@@ -20,6 +21,10 @@ export const maxDuration = 60;
  * limit regardless of how many photos a survey ends up with.
  */
 export async function POST(req: Request) {
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+  // From the verified session, never the request body — a client can't claim to be someone else.
+  const submitter = auth.user ? { name: auth.user.name, email: auth.user.email } : null;
   const payload = (await req.json()) as SubmitPayload;
 
   if (!sheetsConfigured() || !process.env.MQI_SPREADSHEET_ID) {
@@ -29,9 +34,9 @@ export async function POST(req: Request) {
   }
 
   if (payload.method === 1) {
-    await appendMethod1Response(payload);
+    await appendMethod1Response(payload, submitter);
   } else {
-    await appendMethod2Response(payload);
+    await appendMethod2Response(payload, submitter);
   }
 
   // One attachments row per item that has a photo and/or a note, all in a

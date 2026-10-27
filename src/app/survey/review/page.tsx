@@ -63,6 +63,7 @@ import { ReviewPhotoField } from "@/components/survey/ReviewPhotoField";
 import { buildSubmission, countUnresolvedPhotos } from "@/lib/submit";
 import { queueSubmission } from "@/lib/offline/db";
 import { discardSubmittedDraft } from "@/lib/draft";
+import { notifyAuthRequired } from "@/lib/auth/events";
 import { formatDuration } from "@/lib/format-duration";
 import { buildDraftExcelBlob, buildDraftPdfBlob, downloadBlob, draftExportFilenameBase } from "@/lib/export/draft-export";
 import { FileSpreadsheet, FileText } from "lucide-react";
@@ -277,6 +278,16 @@ export default function ReviewPage() {
       // and sync automatically once connectivity returns (see PwaBootstrap).
       await queueSubmission(submission);
       await clearDraft();
+      router.push("/survey/done?queued=1");
+      return;
+    }
+    if (res.status === 401) {
+      // Signed out (or no longer approved) between starting and submitting:
+      // not a failed survey — keep it safe in the queue exactly like an
+      // offline submit, and the app will ask for sign-in.
+      await queueSubmission(submission);
+      await clearDraft();
+      notifyAuthRequired();
       router.push("/survey/done?queued=1");
       return;
     }

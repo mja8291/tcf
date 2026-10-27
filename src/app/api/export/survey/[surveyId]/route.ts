@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/server";
 import { sheetsConfigured } from "@/lib/sheets/client";
 import { buildSingleSurveyWorkbook } from "@/lib/export/single-survey-workbook";
 import { findSurvey } from "@/lib/export/find-survey";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ surveyId: string }> }) {
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
   const { surveyId } = await params;
 
   if (!sheetsConfigured() || !process.env.MQI_SPREADSHEET_ID) {

@@ -13,7 +13,7 @@ import { resumeTargetRoute } from "@/lib/resume-target";
  * here (this is the manual "tap a draft" path; see AutoResumeRedirect for
  * the automatic one, which fires on Home itself without needing this page
  * at all) rather than calling loadDraft directly, since a plain link is
- * simpler than wiring every DraftsBanner row through context. Loads the
+ * simpler than wiring every Queue tab row through context. Loads the
  * draft, drops it from the drafts store (it's live app state again now,
  * not a saved-and-closed snapshot), and continues straight into scoring —
  * no reason to replay the Method 1 Campus Visit intro or method selection

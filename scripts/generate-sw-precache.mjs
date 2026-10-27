@@ -56,6 +56,8 @@ const ROUTES = [
   "/survey/review",
   "/survey/done",
   "/dashboard",
+  "/signin",
+  "/signup",
   "/privacy",
   "/terms",
 ];

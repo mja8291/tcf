@@ -17,9 +17,16 @@ const SUBMISSIONS_STORE = "pendingSubmissions";
 const DRAFTS_STORE = "drafts";
 const SCHOOLS_KEY = "schools";
 
+/** Why a queued survey is still waiting — shown on the Queue tab. "auth" = sign in again; "offline" = no connection yet; "server" = the server answered with an error and it will retry. */
+export type SyncFailureKind = "offline" | "auth" | "server";
+
 export interface QueuedSubmission extends Submission {
   id: number;
   createdAt: string;
+  /** Sync bookkeeping (offline/sync.ts) — absent until a first attempt has failed. */
+  attempts?: number;
+  lastAttemptAt?: string;
+  lastError?: { kind: SyncFailureKind; message: string };
 }
 
 /**

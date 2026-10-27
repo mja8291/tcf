@@ -61,6 +61,8 @@ const TRAILING_HEADER = [
   "Rain Spouts Clear",
   "Building Risk Factors",
   "Risk Factor (Other)",
+  "Submitted By",
+  "Submitter Email",
   "Rubric Version",
 ];
 
@@ -227,7 +229,8 @@ async function appendRowsByHeader(
   });
 }
 
-async function appendRowByHeader(
+/** Also how the Users tab (see auth/users.ts) gets created and appended to. */
+export async function appendRowByHeader(
   spreadsheetId: string,
   tab: string,
   desiredHeader: string[],
@@ -249,7 +252,13 @@ const METHOD1_TAB = process.env.METHOD1_RESPONSE_TAB || "Method 1 Responses";
 const METHOD2_TAB = process.env.METHOD2_RESPONSE_TAB || "Method 2 Responses";
 const ATTACHMENTS_TAB = process.env.ATTACHMENTS_TAB || "MQI Survey Attachments";
 
-function commonFields(payload: SubmitPayload, locationName = ""): Record<string, string> {
+/** Who sent the survey — taken from the verified session on the server, never from the request body. Null when sign-in isn't switched on. */
+export interface Submitter {
+  name: string;
+  email: string;
+}
+
+function commonFields(payload: SubmitPayload, submitter: Submitter | null, locationName = ""): Record<string, string> {
   const fields: Record<string, string> = {
     "Survey ID": payload.surveyId,
     Timestamp: new Date().toISOString(),
@@ -286,6 +295,8 @@ function commonFields(payload: SubmitPayload, locationName = ""): Record<string,
     // Blank for a submission from an app older than the 2026-10-27 rubric
     // change — see rubric-version.ts.
     "Rubric Version": payload.rubricVersion ?? "",
+    "Submitted By": submitter?.name ?? "",
+    "Submitter Email": submitter?.email ?? "",
     "Location Name": locationName,
     "Major Complaints": payload.complaints,
     "Overall Score": payload.overall === null ? "" : String(Math.round(payload.overall)),
@@ -308,9 +319,9 @@ function commonFields(payload: SubmitPayload, locationName = ""): Record<string,
 }
 
 /** One row per submission — one column per Method 1 item, condition string as the value. */
-export async function appendMethod1Response(payload: SubmitPayload) {
+export async function appendMethod1Response(payload: SubmitPayload, submitter: Submitter | null) {
   const spreadsheetId = requireSpreadsheetId();
-  const fields: Record<string, string> = { ...commonFields(payload) };
+  const fields: Record<string, string> = { ...commonFields(payload, submitter) };
   for (const [itemName, condition] of Object.entries(payload.scores)) {
     fields[itemName] = condition;
   }
@@ -323,12 +334,12 @@ export async function appendMethod1Response(payload: SubmitPayload) {
  * row so the dashboard can read one row per Survey ID without re-running
  * aggregation itself.
  */
-export async function appendMethod2Response(payload: SubmitPayload) {
+export async function appendMethod2Response(payload: SubmitPayload, submitter: Submitter | null) {
   const spreadsheetId = requireSpreadsheetId();
   if (!payload.locations || payload.locations.length === 0) return;
   const fieldsList = payload.locations.map((loc) => {
     const fields: Record<string, string> = {
-      ...commonFields(payload, loc.name),
+      ...commonFields(payload, submitter, loc.name),
       "Floor Level": loc.floorLevel,
       "Location Type": loc.type,
       "Classroom Grade": loc.classroomGrade ?? "",

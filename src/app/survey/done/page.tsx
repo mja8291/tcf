@@ -61,6 +61,14 @@ function DoneContent() {
         </p>
       ) : null}
 
+      {queued ? (
+        <Link
+          href="/?tab=queue"
+          className="w-full min-h-11 rounded-xl px-5 py-3 text-sm font-semibold text-center bg-brand text-white mb-2.5"
+        >
+          View queue
+        </Link>
+      ) : null}
       <Link
         href="/"
         className="w-full min-h-11 rounded-xl px-5 py-3 text-sm font-semibold text-center bg-transparent text-brand-deep border border-border"

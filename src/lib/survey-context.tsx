@@ -115,6 +115,23 @@ const ACTIVE_SURVEY_STORAGE_KEY = "mqi-active-survey-id";
  */
 const PENDING_SCHOOL_STORAGE_KEY = "mqi-pending-school";
 
+/**
+ * Forgets "which survey is live" in localStorage without touching React
+ * state. For leaving a survey on purpose (Save and exit, see
+ * SurveyTimerBar): reset() would also do it, but resetting while the page
+ * is still mounted trips every guarded page's "no school → bounce to
+ * find-school" check before the navigation lands. Pair this with a full
+ * page load so the next mount starts clean.
+ */
+export function clearActiveSurveyPointers(): void {
+  try {
+    localStorage.removeItem(ACTIVE_SURVEY_STORAGE_KEY);
+    localStorage.removeItem(PENDING_SCHOOL_STORAGE_KEY);
+  } catch {
+    // storage unavailable — nothing to clear
+  }
+}
+
 function initialState(): SurveyState {
   return {
     school: null,

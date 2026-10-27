@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Pause, Play, Save } from "lucide-react";
-import { useSurvey } from "@/lib/survey-context";
+import { LogOut, Pause, Play, Save } from "lucide-react";
+import { clearActiveSurveyPointers, useSurvey } from "@/lib/survey-context";
 import { formatElapsedMinutes } from "@/lib/format-duration";
 import { saveDraft } from "@/lib/draft";
 
@@ -96,6 +96,21 @@ export function SurveyTimerBar() {
   }, []);
 
   const handleSaveDraft = runSave;
+
+  // Leave the survey without losing it: pause the clock (the time it then
+  // sits in the Queue tab isn't time spent assessing), write the draft, forget
+  // which survey is "live" (otherwise opening Home would auto-resume straight
+  // back into it — survey-context's ACTIVE_SURVEY_STORAGE_KEY), and load Home
+  // fresh. A full page load rather than router.push + reset() on purpose: see
+  // clearActiveSurveyPointers. Resume from the Queue tab reloads the draft.
+  const handleSaveAndExit = useCallback(async () => {
+    pauseTimer();
+    // Let the pause render so stateRef (read by runSave) carries it.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await runSave();
+    clearActiveSurveyPointers();
+    window.location.assign("/?tab=queue");
+  }, [pauseTimer, runSave]);
 
   // Debounced autosave: any survey action reschedules the debounce timer, so
   // a save fires ~2s after activity settles. The max-wait timer is only
@@ -219,6 +234,15 @@ export function SurveyTimerBar() {
           >
             {paused ? <Play size={13} /> : <Pause size={13} />}
             {paused ? "Resume" : "Pause"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSaveAndExit()}
+            aria-label="Save and exit to the queue"
+            title="Save and exit to the queue"
+            className="inline-flex items-center justify-center rounded-lg border border-border bg-white px-2 py-1.5 text-ink-soft"
+          >
+            <LogOut size={13} />
           </button>
         </span>
       </div>

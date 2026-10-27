@@ -8,6 +8,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { ScoreDistribution } from "@/components/dashboard/ScoreDistribution";
 import { RegionRow } from "@/components/dashboard/RegionRow";
 import { SchoolRow } from "@/components/dashboard/SchoolRow";
+import { notifyAuthRequired } from "@/lib/auth/events";
 import { BAND_COLOR, bandColor } from "@/lib/scoring";
 import type { RatingBand } from "@/lib/types";
 import type { DashboardData } from "@/lib/sheets/dashboard";
@@ -21,7 +22,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetch("/api/dashboard")
-      .then((r) => r.json())
+      .then((r) => {
+        if (r.status === 401) notifyAuthRequired(); // signed out or no longer approved — the app sends them to sign in
+        if (!r.ok) throw new Error(`Dashboard request failed: ${r.status}`);
+        return r.json();
+      })
       .then(setData)
       .catch(() => setData(null));
   }, []);
