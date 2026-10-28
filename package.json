@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build && node scripts/generate-sw-precache.mjs",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run"
   },
   "dependencies": {
     "exceljs": "^4.4.0",
@@ -26,8 +27,10 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
+    "jsdom": "^26.1.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vercel": "^58.4.4"
+    "vercel": "^58.4.4",
+    "vitest": "^3.2.7"
   }
 }

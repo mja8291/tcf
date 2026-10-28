@@ -4,6 +4,7 @@ import "./globals.css";
 import { PwaBootstrap } from "@/components/PwaBootstrap";
 import { SurveyProvider } from "@/lib/survey-context";
 import { AuthGate, AuthProvider } from "@/lib/auth/client";
+import { ForceUpdateGate } from "@/components/ForceUpdateGate";
 
 // Self-hosted (the latin subset of Space Grotesk, one variable file) rather than
 // next/font/google: that fetches from Google at build time, and Vercel's build
@@ -49,6 +50,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${spaceGrotesk.variable} h-full`}>
       <body className="min-h-full flex flex-col bg-surface text-ink">
+        {/* Outermost on purpose: the legacy-app update screen has to sit above every route, sign-in included. */}
+        <ForceUpdateGate>
         <PwaBootstrap />
         {/*
           Lifted here (was survey/layout.tsx-only) specifically so Home has
@@ -76,6 +79,7 @@ export default function RootLayout({
             <AuthGate>{children}</AuthGate>
           </SurveyProvider>
         </AuthProvider>
+        </ForceUpdateGate>
       </body>
     </html>
   );
